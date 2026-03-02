@@ -118,7 +118,7 @@ std::string get_type_name() {
     }
 }
 
-// Test function template
+// Test function template (no splitting: reference data matches unsplit layout)
 template<typename MoveStructType>
 void test_move_structure(const std::vector<ulint>& lengths, 
                         const std::vector<ulint>& interval_permutation,
@@ -202,6 +202,33 @@ void test_move_structure(const std::vector<ulint>& lengths,
     std::cout << "    Size: " << move_structure.serialize(ss) << std::endl;
 }
 
+// Splitting-aware test: verify move operations correctness when structure is split.
+// Skips getter assertions (pointer/offset layout differs with splitting).
+template<typename MoveStructType>
+void test_move_structure_with_splitting(const std::vector<ulint>& lengths, 
+                                        const std::vector<ulint>& interval_permutation,
+                                        const std::vector<ulint>& test_perm,
+                                        size_t n) {
+    SplitParams split_params(length_capping_factor, std::nullopt);
+    auto move_structure = MoveStructType(lengths, interval_permutation, n, split_params);
+
+    assert(move_structure.runs() >= lengths.size() && "splitting can only add runs");
+
+    typename MoveStructType::Position pos;
+    if constexpr (std::is_same_v<MoveStructType, MoveStructureTblIdx> || 
+                  std::is_same_v<MoveStructType, MoveStructureVecIdx>) {
+        pos = {0, 0, 0};
+    } else {
+        pos = {0, 0};
+    }
+
+    ulint real_pos = 0;
+    for (size_t i = 0; i < n; ++i) {
+        real_pos = test_perm[real_pos];
+        pos = move_structure.move_exponential(pos);
+    }
+}
+
 void tests() {
     cout << "=== MoveStructure Table Tests ===" << endl << endl;
 
@@ -248,11 +275,17 @@ void tests() {
 
             std::cout << "Testing n=" << n << ", r=" << r << " (n/r=" << n/r << "):" << std::endl;
             
-            // Test all table types
+            // Test all table types (no splitting)
             test_move_structure<MoveStructureTbl>(lengths, interval_permutation, starts, pointers, offsets, test_perm, full_cycle_pos, n);
             test_move_structure<MoveStructureVec>(lengths, interval_permutation, starts, pointers, offsets, test_perm, full_cycle_pos, n);
             test_move_structure<MoveStructureTblIdx>(lengths, interval_permutation, starts, pointers, offsets, test_perm, full_cycle_pos, n);
             test_move_structure<MoveStructureVecIdx>(lengths, interval_permutation, starts, pointers, offsets, test_perm, full_cycle_pos, n);
+
+            // Splitting-aware: verify move correctness when structure is split
+            test_move_structure_with_splitting<MoveStructureTbl>(lengths, interval_permutation, test_perm, n);
+            test_move_structure_with_splitting<MoveStructureVec>(lengths, interval_permutation, test_perm, n);
+            test_move_structure_with_splitting<MoveStructureTblIdx>(lengths, interval_permutation, test_perm, n);
+            test_move_structure_with_splitting<MoveStructureVecIdx>(lengths, interval_permutation, test_perm, n);
             
             std::cout << std::endl;
         }
