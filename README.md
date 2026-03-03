@@ -49,13 +49,13 @@ Given the runny permutation example:
 
 <img width="598" height="572" alt="Image" src="https://github.com/user-attachments/assets/18933a68-b858-40eb-bfb3-f5fd758557d6" />
 
-We pass the lengths of contigiously permuted intervals and the permutation of their first values:
+We pass the lengths of contiguously permuted intervals and the permutation of their first values:
 
 ```cpp
 #include "runperm.hpp"
 
 // Create a run-length permutation
-// Length of contigiuously permuted intervals
+// Length of contiguously permuted intervals
 std::vector<unsigned long int> lengths = {2, 3, 1, 2, 2, 1, 1, 1, 3};
 // Permutation at head of each intervals
 std::vector<unsigned long int> permutation = {1, 9, 3, 12, 4, 14, 0, 15, 6};   
@@ -133,7 +133,7 @@ auto [phi_lengths, phi_interval_perm, domain] = rlbwt_to_phi(bwt_heads, bwt_run_
 
 // RunPerm Phi (always absolute positions)
 enum class PhiCols { VAL1, VAL2, COUNT };
-using PhiRunData = DataTuple<RunCols>;
+using PhiRunData = DataTuple<PhiCols>;
 std::vector<PhiRunData> phi_run_data(phi_lengths.size());
 RunPermPhi<PhiCols> phi(phi_lengths, phi_interval_perm, domain, phi_run_data);
 
