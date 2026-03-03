@@ -56,7 +56,7 @@ public:
 
 
     static_assert(has_count_enumerator<RunCols>::value, "RunColsType must have a COUNT enumerator");
-    
+
     // check if we're using MoveTable
     static constexpr bool is_move_table_type() {
         return std::is_same_v<TableType<void>, MoveTable<void>>;
@@ -123,7 +123,7 @@ public:
     RunPermImpl(MoveStructurePerm &&ms, std::vector<RunData> &run_data, const ulint domain) : move_structure(std::move(ms)), orig_intervals(move_structure.size()) {
         static_assert(!IntegratedMoveStructure, "Cannot construct RunPerm with pre-computed move structure if integrating user data with move structure");
         auto run_cols_widths = get_run_cols_widths(run_data);
-        fill_Separated_data(run_data, run_cols_widths);
+        fill_separated_data(run_data, run_cols_widths);
     }
     
     Position next(Position position) { 
@@ -338,7 +338,7 @@ protected:
         return row;
     }
 
-    void fill_Separated_data(const std::vector<RunData>& run_data, const std::array<uchar, NumRunCols>& run_cols_widths) {
+    void fill_separated_data(const std::vector<RunData>& run_data, const std::array<uchar, NumRunCols>& run_cols_widths) {
         this->run_cols_data = PackedVector<RunCols>(run_data.size(), run_cols_widths);
         for (size_t i = 0; i < run_data.size(); ++i) {
             this->run_cols_data.set_row(i, run_data[i]);
@@ -362,7 +362,7 @@ protected:
             move_structure = MoveStructurePerm(std::move(final_structure), domain);
         } else {
             move_structure = MoveStructurePerm(std::move(base_structure), domain);
-            fill_Separated_data(run_data, run_cols_widths);
+            fill_separated_data(run_data, run_cols_widths);
         }
     }
 };
