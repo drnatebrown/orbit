@@ -51,7 +51,7 @@ protected:
 
 public:
     using RunCols = RunColsType;
-    using RunData = DataTuple<RunCols>;
+    using RunData = ColumnsTuple<RunCols>;
     using Position = typename MoveStructurePerm::Position;
 
 
@@ -226,6 +226,14 @@ public:
     ulint get(Position position) const {
         return get<Col>(position.interval);
     }
+
+    // Using integer column accessors   
+    // ulint get(ulint interval, size_t col) const {
+    //     return move_structure.template get<to_cols(col)>(interval);
+    // }
+    // ulint get(Position position, size_t col) const {
+    //     return get(position.interval, col);
+    // }
 
     ulint get_length(ulint interval) const {
         return move_structure.get_length(interval);

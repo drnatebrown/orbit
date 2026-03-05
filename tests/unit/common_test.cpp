@@ -13,12 +13,12 @@ using std::vector;
 
 void test_define_run_cols_macro() {
     // Exercise DEFINE_ENUM_CLASS_WITH_COUNT and enum helpers from common.hpp.
-    DEFINE_RUN_COLS(RunCols, A, B);
+    DEFINE_COLUMNS(RunCols, A, B);
 
     // COUNT is appended as the last enumerator, but the total size is the number of fields provided.
-    static_assert(enum_count<RunCols>() == 2, "enum_count should match number of fields provided");
+    static_assert(num_columns<RunCols>() == 2, "num_columns should match number of fields provided");
 
-    DataTuple<RunCols> tuple{};
+    ColumnsTuple<RunCols> tuple{};
     tuple[to_index(RunCols::A)] = 7;
     tuple[to_index(RunCols::B)] = 11;
 
@@ -57,10 +57,10 @@ void test_enum_helpers() {
     assert(to_index(TestEnum::C) == 2);
 
     // enum_count uses the COUNT sentinel.
-    assert(enum_count<TestEnum>() == 3);
+    assert(num_columns<TestEnum>() == 3);
 
     // DataTuple builds a fixed-size array consistent with enum_count.
-    DataTuple<TestEnum> tuple{};
+    ColumnsTuple<TestEnum> tuple{};
     static_assert(std::tuple_size<decltype(tuple)>::value == 3,
                   "DataTuple<TestEnum> must have size 3");
     tuple[to_index(TestEnum::A)] = 10;
