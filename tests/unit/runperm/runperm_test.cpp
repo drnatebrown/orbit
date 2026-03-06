@@ -63,6 +63,11 @@ static void test_runperm_separated_absolute_basic_mapping_and_run_data() {
         assert(rp.get_length(i) == lengths[i]);
         assert(rp.get<TestRunCols::VAL1>(i) == static_cast<ulint>(i));
         assert(rp.get<TestRunCols::VAL2>(i) == static_cast<ulint>(i + 100));
+        // get_row must match per-column get
+        auto row = rp.get_row(i);
+        assert(row[0] == rp.get<TestRunCols::VAL1>(i));
+        assert(row[1] == rp.get<TestRunCols::VAL2>(i));
+        assert(row == run_data[i]);
     }
 
     // Position-level mapping: next() must follow perm, and run data must agree.
@@ -75,6 +80,8 @@ static void test_runperm_separated_absolute_basic_mapping_and_run_data() {
         ulint interval = next_pos.interval;
         assert(rp.get<TestRunCols::VAL1>(next_pos) == rp.get<TestRunCols::VAL1>(interval));
         assert(rp.get<TestRunCols::VAL2>(next_pos) == rp.get<TestRunCols::VAL2>(interval));
+        // get_row(Position) must equal get_row(interval)
+        assert(rp.get_row(next_pos) == rp.get_row(interval));
     }
 }
 
@@ -138,6 +145,7 @@ static void test_runperm_serialize_roundtrip_separated_absolute() {
         assert(loaded.get_length(i) == rp.get_length(i));
         assert(loaded.get<TestRunCols::VAL1>(i) == rp.get<TestRunCols::VAL1>(i));
         assert(loaded.get<TestRunCols::VAL2>(i) == rp.get<TestRunCols::VAL2>(i));
+        assert(loaded.get_row(i) == rp.get_row(i));
     }
 
     for (ulint idx = 0; idx < domain; ++idx) {

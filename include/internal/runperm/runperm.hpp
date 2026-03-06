@@ -56,14 +56,11 @@ public:
 
 
     static_assert(has_count_enumerator<RunCols>::value, "RunColsType must have a COUNT enumerator");
+    static_assert(!(!StoreAbsolutePositions && ExponentialSearch), "Exponential search is only supported with absolute positions");
 
     // check if we're using MoveTable
     static constexpr bool is_move_table_type() {
         return std::is_same_v<TableType<void>, MoveTable<void>>;
-    }
-
-    if constexpr (!StoreAbsolutePositions) {
-        ExponentialSearch = false;
     }
 
     // At compile time, check if trying to integrate user data to MoveTable, which uses bitpacked structs
@@ -253,6 +250,22 @@ public:
     template<RunCols Col>
     ulint get(Position position) const {
         return get<Col>(position.interval);
+    }
+
+    RunData get_row(ulint interval) const {
+        if constexpr (IntegratedMoveStructure) {
+            auto full_row = move_structure.get_row(interval);
+            RunData run_row;
+            for (size_t i = 0; i < NumRunCols; ++i) {
+                run_row[i] = full_row[NumBaseCols + i];
+            }
+            return run_row;
+        } else {
+            return this->run_cols_data.get_row(interval);
+        }   
+    }
+    RunData get_row(Position position) const {
+        return get_row(position.interval);
     }
 
     ulint get_length(ulint interval) const {
