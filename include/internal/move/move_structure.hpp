@@ -111,6 +111,12 @@ public:
     ulint get(Position pos) const {
         return get<Col>(pos.interval);
     }
+    std::array<ulint, NumCols> get_row(size_t i) const {
+        return table.get_row(i);
+    }
+    std::array<ulint, NumCols> get_row(Position pos) const {
+        return get_row(pos.interval);
+    }
 
     // === Structure Properties ===
     ulint size() const {

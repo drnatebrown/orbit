@@ -17,7 +17,7 @@ enum class TestRunColsInt {
     COUNT
 };
 
-using TestRunDataInt = DataTuple<TestRunColsInt>;
+using TestRunDataInt = ColumnsTuple<TestRunColsInt>;
 
 template <typename RP>
 static typename RP::Position make_pos_absolute(const RP &rp, ulint idx) {
@@ -84,10 +84,10 @@ static void integration_runperm_separated_and_integrated_absolute() {
         ulint ival_sep = next_sep.interval;
         ulint ival_int = next_int.interval;
 
-        assert(rp_sep.template get<TestRunColsInt::VAL1>(ival_sep) ==
-               rp_int.template get<TestRunColsInt::VAL1>(ival_int));
-        assert(rp_sep.template get<TestRunColsInt::VAL2>(ival_sep) ==
-               rp_int.template get<TestRunColsInt::VAL2>(ival_int));
+        assert(rp_sep.get<TestRunColsInt::VAL1>(ival_sep) ==
+               rp_int.get<TestRunColsInt::VAL1>(ival_int));
+        assert(rp_sep.get<TestRunColsInt::VAL2>(ival_sep) ==
+               rp_int.get<TestRunColsInt::VAL2>(ival_int));
     }
 }
 

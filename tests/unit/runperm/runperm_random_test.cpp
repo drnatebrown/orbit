@@ -23,7 +23,7 @@ enum class TestRunCols {
     COUNT
 };
 
-using TestRunData = DataTuple<TestRunCols>;
+using TestRunData = ColumnsTuple<TestRunCols>;
 
 // Helper to build an absolute RunPerm position from a global index.
 template <typename RP>

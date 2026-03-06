@@ -120,8 +120,8 @@ void example1() {
     ulint domain = 16; // Total domain size
 
     // Some example data columns to store alongside these runs.
-    DEFINE_RUN_COLS(RunCols, VAL1, VAL2);
-    // The DEFINE_RUN_COLS(enum_name, ...) macro above is equivalent to:
+    DEFINE_COLUMNS(RunCols, VAL1, VAL2);
+    // The DEFINE_COLUMNS(enum_name, ...) macro above is equivalent to:
     // enum class RunCols {
     //     VAL1,
     //     VAL2,
@@ -131,7 +131,7 @@ void example1() {
     // !!! but must be included manually in the enum definition.
 
     // Defines std::array<ulint, static_cast<size_t>(RunCols::COUNT)>
-    using RunColsTuple = DataTuple<RunCols>;
+    using RunColsTuple = ColumnsTuple<RunCols>;
     std::vector<RunColsTuple> run_data(lengths.size()); // Some data with tuples per run
     // Fill with dummy data
     for (size_t i = 0; i < lengths.size(); ++i) {
@@ -217,7 +217,7 @@ void example4() {
         VAL2,
         COUNT
     };
-    using LFRunData = DataTuple<RunCols>;
+    using LFRunData = ColumnsTuple<RunCols>;
     std::vector<LFRunData> lf_run_data(bwt_heads.size()); // Insert with some type of data
     for (size_t i = 0; i < bwt_heads.size(); ++i) {
         lf_run_data[i] = {i, i + 1};

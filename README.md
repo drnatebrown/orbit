@@ -66,23 +66,26 @@ ulint domain = 16; // Total domain size
 
 Then, we must define the number of columns of additional data to store alongside the permutation intervals. This is made easier with a macro:
 ```cpp
-DEFINE_RUN_COLS(RunCols, VAL1, VAL2)
-// The DEFINE_RUN_COLS(enum_name, ...) macro above is equivalent to:
+DEFINE_COLUMNS(RunCols, VAL1, VAL2)
+// The DEFINE_COLUMNS(enum_name, ...) macro above is equivalent to:
 enum class RunCols {
      VAL1,
      VAL2,
      COUNT
 };
-// The COUNT enumerator is automatically added by the DEFINE_RUN_COLS macro,
+// The COUNT enumerator is automatically added by the DEFINE_COLUMNS macro,
 // but must be included manually in the explicit enum definition.
 ```
 
 The actual data is then stored in a vector of tuples. The length of this vector must match the number of permutation intervals.
 ```cpp
 // Defines an array of unsigned long integers of length COUNT
-// i.e., std::array<unsigned long int, static_cast<size_t>(RunsCols::COUNT>)
-using RunColsTuple = DataTuple<RunCols>;
-std::vector<RunColsTuple> run_data(lengths.size()); // Some data with tuples per run
+using RunColsTuple = ColumnsTuple<RunCols>;
+// This is equivalent to
+std::array<unsigned long int, static_cast<size_t>(RunsCols::COUNT>)
+
+// We then have a tuple for each row
+std::vector<RunColsTuple> run_data(lengths.size());
 ```
 
 Given this information, we pass the user defined run columns to RunPerm and construct a runny permutation:
@@ -138,7 +141,7 @@ MoveLF<> move_lf(bwt_heads, bwt_run_lengths);
 
 // LF with RunPerm + run data columns without the define statement
 enum class RunCols { VAL1, VAL2, COUNT };
-using LFRunData = DataTuple<RunCols>;
+using LFRunData = ColumnsTuple<RunCols>;
 std::vector<LFRunData> lf_run_data(bwt_heads.size()); // Insert with some type of data
 RunPermLF<RunCols> runperm_lf(bwt_heads, bwt_run_lengths, lf_run_data);
 
@@ -158,8 +161,8 @@ By including `rlbwt.hpp`, we can also build the permutations from an RLBWT for $
 auto [phi_lengths, phi_interval_perm, domain] = rlbwt_to_phi(bwt_heads, bwt_run_lengths);
 
 // RunPerm Phi (always absolute positions)
-DEFINE_RUN_COLS(PhiCols, VAL1, VAL2)
-using PhiRunData = DataTuple<PhiCols>;
+DEFINE_COLUMNS(PhiCols, VAL1, VAL2)
+using PhiRunData = ColumnsTuple<PhiCols>;
 std::vector<PhiRunData> phi_run_data(phi_lengths.size());
 RunPermPhi<PhiCols> phi(phi_lengths, phi_interval_perm, domain, phi_run_data);
 

@@ -23,7 +23,7 @@ struct SeparatedDataHolder<RunColsType, true> { /* empty */ };
 template<typename RunColsType, // Fields to be stored alongside the move structure representing a runny permutation
          bool IntegratedMoveStructure = DEFAULT_INTEGRATED_MOVE_STRUCTURE, // Whether to pack the run data alongside the move structure
          bool StoreAbsolutePositions = DEFAULT_STORE_ABSOLUTE_POSITIONS, // Whether to store absolute positions instead of interval/offset
-         bool ExponentialSearch = DEFAULT_EXPONENTIAL_SEARCH, // Whether to use exponential search for next(), only used if StoreAbsolutePositions is true
+         bool ExponentialSearch = StoreAbsolutePositions && DEFAULT_EXPONENTIAL_SEARCH, // Whether to use exponential search for next() by default, only used if StoreAbsolutePositions is true
          typename BaseColumnsType = MoveCols,
          template<typename, template<typename> class> class MoveStructureType = MoveStructure,
          template<typename> class TableType = MoveVector>
@@ -51,11 +51,12 @@ protected:
 
 public:
     using RunCols = RunColsType;
-    using RunData = DataTuple<RunCols>;
+    using RunData = ColumnsTuple<RunCols>;
     using Position = typename MoveStructurePerm::Position;
 
 
     static_assert(has_count_enumerator<RunCols>::value, "RunColsType must have a COUNT enumerator");
+    static_assert(!(!StoreAbsolutePositions && ExponentialSearch), "Exponential search is only supported with absolute positions");
 
     // check if we're using MoveTable
     static constexpr bool is_move_table_type() {
@@ -145,6 +146,30 @@ public:
         return position;
     }
 
+    // Non-exponential search version of next()
+    Position next_linear(Position position) {
+        return move_structure.move(position);
+    }
+
+    Position next_linear(Position position, ulint steps) {
+        for (ulint i = 0; i < steps; ++i) {
+            position = move_structure.move(position);
+        }
+        return position;
+    }
+
+    // Exponential search version of next()
+    Position next_exponential(Position position) {
+        return move_structure.move_exponential(position);
+    }
+
+    Position next_exponential(Position position, ulint steps) {
+        for (ulint i = 0; i < steps; ++i) {
+            position = move_structure.move_exponential(position);
+        }
+        return position;
+    }
+
     // Set position to interval above in underlying move structure, or circularly wrap to the bottom if already at top
     Position up(Position position) {
         if (position.interval == 0)
@@ -225,6 +250,22 @@ public:
     template<RunCols Col>
     ulint get(Position position) const {
         return get<Col>(position.interval);
+    }
+
+    RunData get_row(ulint interval) const {
+        if constexpr (IntegratedMoveStructure) {
+            auto full_row = move_structure.get_row(interval);
+            RunData run_row;
+            for (size_t i = 0; i < NumRunCols; ++i) {
+                run_row[i] = full_row[NumBaseCols + i];
+            }
+            return run_row;
+        } else {
+            return this->run_cols_data.get_row(interval);
+        }   
+    }
+    RunData get_row(Position position) const {
+        return get_row(position.interval);
     }
 
     ulint get_length(ulint interval) const {

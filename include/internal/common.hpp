@@ -50,17 +50,17 @@ template<class E>
 constexpr size_t to_index(E e) noexcept { return static_cast<size_t>(e); }
 
 template<class E>
-constexpr size_t enum_count() noexcept {
+constexpr size_t num_columns() noexcept {
     return static_cast<size_t>(E::COUNT);
 }
 
 template<class E, typename T = ulint>
-using DataTuple = std::array<T, enum_count<E>()>;
+using ColumnsTuple = std::array<T, num_columns<E>()>;
 
 // Defines a macro to generate an enum class named <enum_name> with specified fields, 
 // and appends COUNT as the last enumerator for sizing.
-// Usage: DEFINE_ENUM_CLASS_WITH_COUNT(MyEnum, FIELD1, FIELD2, FIELD3)
-#define DEFINE_RUN_COLS(enum_name, ...) \
+// Usage: DEFINE_COLUMNS(MyEnum, FIELD1, FIELD2, FIELD3)
+#define DEFINE_COLUMNS(enum_name, ...) \
     enum class enum_name { __VA_ARGS__, COUNT };
 
 #define MOVE_CLASS_TRAITS(ColumnsParam) \
