@@ -87,6 +87,26 @@ void test_int_vector_serialize_roundtrip() {
     }
 }
 
+void test_int_vector_vector_ctor_non_empty() {
+    std::vector<ulint> data;
+    data.reserve(64);
+    for (size_t i = 0; i < 64; ++i) {
+        data.push_back(static_cast<ulint>((i * 17) ^ (i >> 1)));
+    }
+
+    IntVector v(data);
+    assert(v.rows() == data.size());
+    for (size_t i = 0; i < data.size(); ++i) {
+        assert(v.get(i) == data[i]);
+    }
+}
+
+void test_int_vector_vector_ctor_empty() {
+    std::vector<ulint> data;
+    IntVector v(data);
+    assert(v.rows() == 0);
+}
+
 // Tests for the Columns-based PackedVector facade.
 void test_packed_vector_with_enum() {
     enum class Columns {
@@ -166,6 +186,27 @@ void test_int_vector_aligned() {
     }
 }
 
+void test_int_vector_aligned_vector_ctor_non_empty() {
+    std::vector<ulint> data;
+    data.reserve(64);
+    for (size_t i = 0; i < 64; ++i) {
+        // keep values small-ish but non-trivial
+        data.push_back(static_cast<ulint>((i * 17) ^ (i >> 1)));
+    }
+
+    IntVectorAligned v(data);
+    assert(v.rows() == data.size());
+    for (size_t i = 0; i < data.size(); ++i) {
+        assert(v.get(i) == data[i]);
+    }
+}
+
+void test_int_vector_aligned_vector_ctor_empty() {
+    std::vector<ulint> data;
+    IntVectorAligned v(data);
+    assert(v.rows() == 0);
+}
+
 // Round-trip serialize/load for IntVectorAligned.
 void test_int_vector_aligned_serialize_roundtrip() {
     const size_t rows = 32;
@@ -225,9 +266,13 @@ int main() {
     test_packed_matrix_single_column();
     test_packed_matrix_multi_column();
     test_int_vector_serialize_roundtrip();
+    test_int_vector_vector_ctor_non_empty();
+    test_int_vector_vector_ctor_empty();
     test_packed_vector_with_enum();
     test_packed_matrix_aligned_basic();
     test_int_vector_aligned();
+    test_int_vector_aligned_vector_ctor_non_empty();
+    test_int_vector_aligned_vector_ctor_empty();
     test_int_vector_aligned_serialize_roundtrip();
     test_packed_vector_aligned_with_enum();
 

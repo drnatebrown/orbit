@@ -9,6 +9,7 @@
 #include <vector>
 #include <array>
 #include <iostream>
+#include <algorithm>
 
 template <size_t NumCols>
 class PackedMatrix {
@@ -202,6 +203,12 @@ class IntVector : public PackedMatrix<1> {
 public:
     IntVector() = default;
     IntVector(size_t rows, uchar width) : Base(rows, {width}) {}
+    IntVector(std::vector<ulint> data) 
+    : Base(data.size(), {(data.empty() ? static_cast<uchar>(0) : bit_width(*std::max_element(data.begin(), data.end())))}) {
+        for (size_t i = 0; i < data.size(); i++) {
+            set(i, data[i]);
+        }
+    }
     
     ulint get(size_t row) const {
         return Base::template get<0>(row);

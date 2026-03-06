@@ -9,6 +9,7 @@
 #include <vector>
 #include <array>
 #include <iostream>
+#include <algorithm>
 
 // Column values are rounded to the nearest byte
 // TODO this would be better if definitely fast, using SIMD to unpack entire rows?
@@ -199,6 +200,12 @@ class IntVectorAligned : public PackedMatrixAligned<1> {
 public:
     IntVectorAligned() = default;
     IntVectorAligned(size_t rows, uchar width) : Base(rows, {width}) {}
+    IntVectorAligned(std::vector<ulint> data) 
+    : Base(data.size(), {(data.empty() ? static_cast<uchar>(0) : bit_width(*std::max_element(data.begin(), data.end())))}) {
+        for (size_t i = 0; i < data.size(); i++) {
+            set(i, data[i]);
+        }
+    }
 
     ulint get(size_t row) const {
         return Base::template get<0>(row);
