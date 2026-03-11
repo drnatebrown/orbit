@@ -6,22 +6,22 @@
 #include <cassert>
 #include <optional>
 
-inline constexpr std::optional<double> DEFAULT_LENGTH_CAPPING_FACTOR = 8.0;
-inline constexpr std::optional<ulint> DEFAULT_BALANCING_FACTOR = 16;
+inline constexpr std::optional<double> DEFAULT_LENGTH_CAPPING = 8.0;
+inline constexpr std::optional<ulint> DEFAULT_BALANCING = 16;
 
 struct SplitParams {
-    std::optional<double> length_capping_factor;
-    std::optional<ulint> balancing_factor;
+    std::optional<double> length_capping;
+    std::optional<ulint> balancing;
 
-    SplitParams() : length_capping_factor(DEFAULT_LENGTH_CAPPING_FACTOR), balancing_factor(DEFAULT_BALANCING_FACTOR) {}
-    SplitParams(std::optional<double> length_capping_factor, std::optional<ulint> balancing_factor)
-    : length_capping_factor(std::move(length_capping_factor)), balancing_factor(std::move(balancing_factor)) {}
+    SplitParams() : length_capping(DEFAULT_LENGTH_CAPPING_FACTOR), balancing(DEFAULT_BALANCING_FACTOR) {}
+    SplitParams(std::optional<double> length_capping, std::optional<ulint> balancing)
+    : length_capping(std::move(length_capping)), balancing(std::move(balancing)) {}
 };
 
 inline SplitParams NO_SPLITTING = SplitParams(std::nullopt, std::nullopt);
-inline SplitParams DEFAULT_SPLITTING = SplitParams(DEFAULT_LENGTH_CAPPING_FACTOR, DEFAULT_BALANCING_FACTOR);
-inline SplitParams ONLY_LENGTH_CAPPING = SplitParams(DEFAULT_LENGTH_CAPPING_FACTOR, std::nullopt);
-inline SplitParams ONLY_BALANCING = SplitParams(std::nullopt, DEFAULT_BALANCING_FACTOR);
+inline SplitParams DEFAULT_SPLITTING = SplitParams(DEFAULT_LENGTH_CAPPING, DEFAULT_BALANCING);
+inline SplitParams ONLY_LENGTH_CAPPING = SplitParams(DEFAULT_LENGTH_CAPPING, std::nullopt);
+inline SplitParams ONLY_BALANCING = SplitParams(std::nullopt, DEFAULT_BALANCING);
 
 template<class IntVectorType>
 struct SplitResult {
