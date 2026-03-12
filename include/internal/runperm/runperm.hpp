@@ -72,22 +72,57 @@ public:
 
     RunPermImpl() = default;
 
+    // Intended constructor for manual splitting of run data
+    template<typename PermutationType = Permutation>
+    RunPermImpl(const PermutationType& permutation, const std::vector<RunData> &run_data) {
+        PackedVector<BaseColumns> base_structure = MoveStructureBase::find_structure(permutation);
+        if (run_data.size() == permutation.intervals()) {
+            populate_structure(std::move(base_structure), run_data, permutation.domain(), permutation.runs());
+        }
+        else if (run_data.size() == permutation.runs()) {
+            const std::vector<RunData> final_run_data = permutation.split_run_data_with_copy(run_data);
+            populate_structure(std::move(base_structure), final_run_data, permutation.domain(), permutation.runs());
+        } else {
+            throw std::invalid_argument("Run data size must be the same as the number of runs (copy) or intervals (user defined splits)");
+        }
+    }
+
     /**
      * lengths -> length of each interval which permutes contiguously
      * interval_permutation -> permutation position of the first position of each interval
      * domain -> domain of the permutation, i.e. a permutatation over 1..n has domain n
      * run_data -> run data for each interval, the size of this vector should be the same as the number of intervals
      */
-    RunPermImpl(const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const std::vector<RunData> &run_data)
-        : RunPermImpl(lengths, interval_permutation, SplitParams(), run_data) {}
+     // When user doesn't pass splitting params without providing permutation object input, use NO_SPLITTING
+     RunPermImpl(const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const std::vector<RunData> &run_data)
+     : RunPermImpl(lengths, interval_permutation, NO_SPLITTING, run_data) {}
 
-    // When Splitting, by default just copy the run data for the original interval if the move structure intervals have been split
+    // If splitting, copy the run data by default
     RunPermImpl(const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const SplitParams &split_params, const std::vector<RunData> &run_data)
-        : RunPermImpl(lengths, interval_permutation, split_params,
+        : RunPermImpl(lengths, interval_permutation, split_params, run_data,
             [&run_data](ulint orig_interval, ulint orig_interval_length, ulint new_offset_from_orig_start, ulint new_length) {
                 return run_data[orig_interval];
             }
         ){}
+
+    // Path for constructor above, see below constructor for more details
+    // This exists as a fast path in case no splitting is set and we do not need to call extend_run_data
+    RunPermImpl(const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const SplitParams &split_params, const std::vector<RunData> &run_data, std::function<RunData(ulint, ulint, ulint, ulint)> get_run_cols_data) {
+        assert(lengths.size() == interval_permutation.size());
+        
+        // Find the base structure (move structure without run data)
+        auto permutation = Permutation::from_lengths_and_interval_permutation(lengths, interval_permutation, split_params);
+        size_t domain = permutation.domain();
+        size_t runs = permutation.runs();
+        PackedVector<BaseColumns> base_structure = MoveStructureBase::find_structure(permutation);
+
+        if (split_params == NO_SPLITTING) {
+            populate_structure(std::move(base_structure), run_data, domain, runs);
+        } else {
+            std::vector<RunData> final_run_data = extend_run_data(lengths, base_structure, domain, get_run_cols_data);
+            populate_structure(std::move(base_structure), final_run_data, domain, runs);
+        }
+    }
 
     // Advanced constructor for users who want to specify how to set the run data for each column type by passing a function:
     /** Function Signature:
@@ -106,6 +141,7 @@ public:
         size_t domain = permutation.domain();
         size_t runs = permutation.runs();
         PackedVector<BaseColumns> base_structure = MoveStructureBase::find_structure(permutation);
+
         std::vector<RunData> final_run_data = extend_run_data(lengths, base_structure, domain, get_run_cols_data);
         populate_structure(std::move(base_structure), final_run_data, domain, runs);
     }
@@ -190,7 +226,7 @@ public:
 
     // Set position to interval below in underlying move structure, or circularly wrap to the top if already at bottom
     Position down(Position position) {
-        if (position.interval == move_structure.runs() - 1)
+        if (position.interval == move_structure.intervals() - 1)
         {
             return first();
         }
@@ -423,6 +459,12 @@ public:
         auto [lengths, interval_permutation] = get_permutation_intervals(permutation);
         std::vector<std::array<ulint, 0>> empty_run_data(lengths.size());
         run_perm = RunPermType(lengths, interval_permutation, split_params, empty_run_data);
+    }
+
+    template<typename PermutationType = Permutation>
+    MovePermImpl(const PermutationType& permutation) {
+        std::vector<std::array<ulint, 0>> empty_run_data(permutation.intervals());
+        run_perm = RunPermType(permutation, empty_run_data);
     }
     
     // Constructor from lengths and interval permutation

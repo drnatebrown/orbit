@@ -17,6 +17,11 @@ struct SplitParams {
     SplitParams() : length_capping(DEFAULT_LENGTH_CAPPING), balancing(DEFAULT_BALANCING) {}
     SplitParams(std::optional<double> length_capping, std::optional<ulint> balancing)
     : length_capping(std::move(length_capping)), balancing(std::move(balancing)) {}
+
+    bool operator==(const SplitParams& other) const {
+        return length_capping == other.length_capping && balancing == other.balancing;
+    }
+    bool operator!=(const SplitParams& other) const { return !(*this == other); }
 };
 
 inline SplitParams NO_SPLITTING = SplitParams(std::nullopt, std::nullopt);

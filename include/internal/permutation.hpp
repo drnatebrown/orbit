@@ -285,7 +285,7 @@ private:
     }
 
     void apply_splitting(IntVectorType& curr_lengths, IntVectorType& curr_tau_inv, ulint& new_max_length, const SplitParams& split_params) {
-        if (!split_params.length_capping && !split_params.balancing) {
+        if (split_params == NO_SPLITTING) {
             new_max_length = this->max_length_;
             return;
         }
