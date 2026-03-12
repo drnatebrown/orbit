@@ -80,10 +80,9 @@ public:
             populate_structure(std::move(base_structure), run_data, permutation.domain(), permutation.runs());
         }
         else if (run_data.size() == permutation.runs()) {
-            const std::vector<RunData> final_run_data = permutation.split_run_data_with_copy(run_data);
-            populate_structure(std::move(base_structure), final_run_data, permutation.domain(), permutation.runs());
+            throw std::invalid_argument("Run data size is same as number of runs, not intervals after splitting; avoid splitting, manually split run data, or use permutation copy split.");
         } else {
-            throw std::invalid_argument("Run data size must be the same as the number of runs (copy) or intervals (user defined splits)");
+            throw std::invalid_argument("Run data size must be the same as the number of intervals (user defined splits) or number of runs (no splitting).");
         }
     }
 
@@ -150,26 +149,35 @@ public:
         populate_structure(std::move(base_structure), final_run_data, domain, runs);
     }
 
-    // Constructor from pre-computed table (move semantics) for advanced users with integrated move structure
-    RunPermImpl(PackedVector<Columns> &&structure, const size_t domain, const size_t runs) : move_structure(MoveStructurePerm(std::move(structure), domain, runs)) {
+    // from pre-computed table (move semantics) for advanced users with integrated move structure
+    static RunPermImpl from_structure(PackedVector<Columns> &&structure, const size_t domain, const size_t runs) {
         static_assert(IntegratedMoveStructure, "Cannot construct RunPerm with pre-computed permutation structure if not integrating user data with move structure");
+        return RunPermImpl(MoveStructurePerm(std::move(structure), domain, runs));
     }
 
-    // Constructor from pre-computed table (move semantics) for advanced users without integrated move structure
-    RunPermImpl(PackedVector<BaseColumns> &&structure, std::vector<RunData> &run_data, const size_t domain, const size_t runs) : move_structure(MoveStructurePerm(std::move(structure), domain, runs)) {
+    // from pre-computed table (move semantics) for advanced users without integrated move structure
+    static RunPermImpl from_structure(PackedVector<BaseColumns> &&structure, std::vector<RunData> &run_data, const size_t domain, const size_t runs) {
         static_assert(!IntegratedMoveStructure, "Cannot construct RunPerm with pre-computed permutation structure if integrating user data with move structure");
-        populate_run_data(std::move(structure), run_data);
+        auto result = RunPermImpl(MoveStructurePerm(std::move(structure), domain, runs));
+        result.populate_run_data(std::move(structure), run_data);
+        return result;
     }
 
-    RunPermImpl(MoveStructurePerm &&ms) : move_structure(std::move(ms)) {
+    static RunPermImpl from_move_structure(MoveStructurePerm &&ms) {
         static_assert(IntegratedMoveStructure, "Cannot construct RunPerm with pre-computed move structure if not integrating user data with move structure");
+        return RunPermImpl(std::move(ms));
     }
 
-    RunPermImpl(MoveStructurePerm &&ms, std::vector<RunData> &run_data) : move_structure(std::move(ms)) {
+    static RunPermImpl from_move_structure(MoveStructurePerm &&ms, std::vector<RunData> &run_data) {
+        assert(run_data.size() == ms.size());
         static_assert(!IntegratedMoveStructure, "Cannot construct RunPerm with pre-computed move structure if integrating user data with move structure");
+        auto result = RunPermImpl(std::move(ms));
         auto run_cols_widths = get_run_cols_widths(run_data);
-        fill_separated_data(run_data, run_cols_widths);
+        result.fill_separated_data(run_data, run_cols_widths);
+        return result;
     }
+
+    /*** NAVIGATION METHODS ***/
     
     Position next(Position position) { 
         if constexpr (StoreAbsolutePositions && ExponentialSearch) {
@@ -272,6 +280,8 @@ public:
         return position;
     }
 
+    /*** PROPERTY METHODS ***/
+
     Position first() { return move_structure.first(); }
     Position last() { return move_structure.last(); }
 
@@ -282,6 +292,8 @@ public:
     const std::array<uchar, NumCols>& get_widths() const {
         return move_structure.get_widths();
     }
+
+    /*** RUN DATA ACCESS METHODS ***/
 
     template<RunCols Col>
     ulint get(ulint interval) const {
@@ -319,6 +331,8 @@ public:
         return get_length(position.interval);
     }
 
+    /*** SERIALIZATION METHODS ***/
+    
     size_t serialize(std::ostream& os) {
         size_t written_bytes = 0;
 

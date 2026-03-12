@@ -184,6 +184,20 @@ public:
     using Base::operator=;
     using Position = typename Base::Position;
 
+
+    MoveInvPhi(const std::vector<uchar>& rlbwt_heads,
+        const std::vector<ulint>& rlbwt_run_lengths,
+        const SplitParams& split_params = SplitParams())
+    : Base([&] {
+        size_t domain = 0;
+        ulint max_length = 0;
+        auto [invphi_lengths, invphi_tau_inv] =
+            phi::rlbwt_to_invphi_tau_inv<>(rlbwt_heads, rlbwt_run_lengths,
+                                            &domain, &max_length);
+        return Permutation::from_lengths_and_tau_inv(
+            invphi_lengths, invphi_tau_inv, domain, max_length, split_params);
+    }()) {}
+
     Position InvPhi(Position pos) {
         return Base::next(pos);
     }
