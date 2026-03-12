@@ -231,9 +231,10 @@ void run_lf_fl_benchmarks(const vector<uchar> &bwt_heads,
 // === Phi / InvPhi suffix array benchmarks (move-only, mirroring tests/integration/rlbwt_test.cpp) ===
 
 // Standard Phi (no exponential search)
+template<class Container1, class Container2>
 void bench_move_phi(const string &name,
-                    const vector<ulint> &lengths,
-                    const vector<ulint> &interval_permutation,
+                    const Container1 &lengths,
+                    const Container2 &interval_permutation,
                     ulint domain,
                     const vector<ulint> &sa_truth,
                     const SplitParams &split_params) {
@@ -270,9 +271,10 @@ void bench_move_phi(const string &name,
 }
 
 // Phi with exponential search (absolute positions + ExponentialSearch = true)
+template<class Container1, class Container2>
 void bench_move_phi_exp(const string &name,
-                        const vector<ulint> &lengths,
-                        const vector<ulint> &interval_permutation,
+                        const Container1 &lengths,
+                        const Container2 &interval_permutation,
                         ulint domain,
                         const vector<ulint> &sa_truth,
                         const SplitParams &split_params) {
@@ -321,9 +323,10 @@ void bench_move_phi_exp(const string &name,
 }
 
 // Standard InvPhi (no exponential search)
+template<class Container1, class Container2>
 void bench_move_invphi(const string &name,
-                       const vector<ulint> &lengths,
-                       const vector<ulint> &interval_permutation,
+                       const Container1 &lengths,
+                       const Container2 &interval_permutation,
                        ulint domain,
                        const vector<ulint> &sa_truth,
                        const SplitParams &split_params) {
@@ -359,9 +362,10 @@ void bench_move_invphi(const string &name,
 }
 
 // InvPhi with exponential search (absolute positions + ExponentialSearch = true)
+template<class Container1, class Container2>
 void bench_move_invphi_exp(const string &name,
-                           const vector<ulint> &lengths,
-                           const vector<ulint> &interval_permutation,
+                           const Container1 &lengths,
+                           const Container2 &interval_permutation,
                            ulint domain,
                            const vector<ulint> &sa_truth,
                            const SplitParams &split_params) {
@@ -419,10 +423,10 @@ void run_phi_invphi_benchmarks(const vector<uchar> &bwt_heads,
     // Build Phi / InvPhi structures from the RLBWT.
     size_t phi_domain;
     ulint max_length;
-    auto [phi_lengths, phi_interval_permutations] = rlbwt_to_phi<AlphabetType>(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
+    auto [phi_lengths, phi_interval_permutations] = phi::rlbwt_to_phi<AlphabetType>(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
     size_t invphi_domain;
     ulint max_length_inv;
-    auto [invphi_lengths, invphi_interval_permutations] = rlbwt_to_invphi<AlphabetType>(bwt_heads, bwt_run_lengths, &invphi_domain, &max_length_inv);
+    auto [invphi_lengths, invphi_interval_permutations] = phi::rlbwt_to_invphi<AlphabetType>(bwt_heads, bwt_run_lengths, &invphi_domain, &max_length_inv);
 
     assert(phi_domain == sa_truth.size());
     assert(invphi_domain == sa_truth.size());

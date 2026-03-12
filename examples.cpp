@@ -256,7 +256,7 @@ void example6() {
 
     std::cout << "Input RLBWT: (T, 5), (C, 3), (G, 3), (A, 3), (T, 1), ($, 1), (A, 1), (T, 4), (A, 6)" << std::endl;
 
-    auto [phi_lengths, phi_interval_permutations] = rlbwt_to_phi(bwt_heads, bwt_run_lengths);
+    auto [phi_lengths, phi_interval_permutations] = phi::rlbwt_to_phi(bwt_heads, bwt_run_lengths);
     MoveInvPhi move_invphi(phi_lengths, phi_interval_permutations);
     auto pos = move_invphi.last();
     std::vector<ulint> sa_recovered(domain);

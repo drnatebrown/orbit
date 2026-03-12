@@ -21,7 +21,7 @@ void test_phi_invphi_structure_on_small_rlbwt() {
     auto [phi_lengths, phi_perm] = phi::rlbwt_to_phi(heads, lens, &phi_domain, &max_length);
     size_t inv_domain;
     ulint max_length_inv;
-    auto [inv_lengths, inv_perm] = rlbwt_to_invphi(heads, lens, &inv_domain, &max_length_inv);
+    auto [inv_lengths, inv_perm] = phi::rlbwt_to_invphi(heads, lens, &inv_domain, &max_length_inv);
 
     assert(phi_domain == 27);
     assert(inv_domain == 27);
@@ -52,7 +52,7 @@ void test_runperm_phi_invphi_wrapper_equivalence() {
     auto [phi_lengths, phi_perm] = phi::rlbwt_to_phi(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
     size_t inv_domain;
     ulint max_length_inv;
-    auto [inv_lengths, inv_perm] = rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
+    auto [inv_lengths, inv_perm] = phi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
 
     assert(phi_domain == inv_domain);
 

@@ -67,7 +67,7 @@ std::tuple<IntVec, IntVec, IntVec, size_t, size_t> rlbwt_to_phi_lengths_and_samp
 }
 
 template<typename LFType>
-IntVec samples_to_interval_permutations(const IntVec& move_run_to_phi, const IntVec& run_tail_sa_samples, const size_t UNUSED_SA, const LFType& lf) {
+IntVec samples_to_phi_interval_permutations(const IntVec& move_run_to_phi, const IntVec& run_tail_sa_samples, const size_t UNUSED_SA, const LFType& lf) {
     IntVec phi_interval_permutations(lf.runs(), bit_width(lf.domain() - 1));
     
     // Step through BWT tail samples to fill in Phi interval permutations
@@ -83,7 +83,7 @@ template<typename LFType>
 std::tuple<IntVec, IntVec> rlbwt_to_phi(const std::vector<uchar>& bwt_heads, const std::vector<ulint>& bwt_run_lengths, LFType& lf, size_t* domain = nullptr, ulint* max_length = nullptr) {
     assert(bwt_heads.size() == bwt_run_lengths.size());
     auto [phi_lengths, move_run_to_phi, run_tail_sa_samples, _, UNUSED_SA] = rlbwt_to_phi_lengths_and_samples(bwt_heads, bwt_run_lengths, lf, domain, max_length);
-    auto phi_interval_permutations = samples_to_interval_permutations(move_run_to_phi, run_tail_sa_samples, UNUSED_SA, lf);
+    auto phi_interval_permutations = samples_to_phi_interval_permutations(move_run_to_phi, run_tail_sa_samples, UNUSED_SA, lf);
     return {phi_lengths, phi_interval_permutations};
 }
 
