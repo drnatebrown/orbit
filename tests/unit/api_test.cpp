@@ -69,6 +69,21 @@ void test_rlbwt_api() {
     (void)pos_fl;
     (void)rp_lf.domain();
     (void)rp_fl.domain();
+
+    // Exercise the public Phi / InvPhi convenience wrappers on a known-valid example.
+    // TEXT: GATTACATGATTACATAGATTACATT$
+    // BWT:  TTTTTCCCGGGAAAT$ATTTTAAAAAA
+    // RLBWT: TCGAT$ATA
+    vector<uchar> bwt_heads =       {'T','C','G','A','T', 1 ,'A','T','A'};
+    vector<ulint> bwt_run_lengths = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
+
+    auto phi_perm = phi::phi(bwt_heads, bwt_run_lengths, NO_SPLITTING);
+    auto invphi_perm = invphi::invphi(bwt_heads, bwt_run_lengths, NO_SPLITTING);
+
+    assert(phi_perm.domain() == invphi_perm.domain());
+    assert(phi_perm.domain() == 27);
+    assert(phi_perm.get_split_params() == NO_SPLITTING);
+    assert(invphi_perm.get_split_params() == NO_SPLITTING);
 }
 
 void test_runperm_header_is_available() {

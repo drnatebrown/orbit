@@ -1,7 +1,7 @@
-// Unit tests for common utilities/macros in `internal/common.hpp`.
+// Unit tests for common utilities/macros in `common.hpp`.
 // These are simple assert-based tests, consistent with the rest of the suite.
 
-#include "internal/common.hpp"
+#include "common.hpp"
 
 #include <cassert>
 #include <iostream>

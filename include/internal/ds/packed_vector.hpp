@@ -1,7 +1,7 @@
 #ifndef _PACKED_VECTOR_HPP
 #define _PACKED_VECTOR_HPP
 
-#include "internal/common.hpp"
+#include "common.hpp"
 #include <cassert>
 #include <cstring>
 #include <cstdint>

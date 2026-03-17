@@ -1,7 +1,7 @@
 #ifndef _MOVE_COLUMNS_HPP
 #define _MOVE_COLUMNS_HPP
 
-#include "internal/common.hpp"
+#include "common.hpp"
 
 /* ALL MOVE STRUCTURE MUST REPRESENT AT LEAST ONE OF THESE COLUMNS DEFS */
 

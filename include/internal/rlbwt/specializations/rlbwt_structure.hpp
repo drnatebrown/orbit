@@ -1,10 +1,10 @@
 #ifndef _RLBWT_STRUCTURE_HPP
 #define _RLBWT_STRUCTURE_HPP
 
-#include "internal/common.hpp"
-#include "internal/permutation.hpp"
+#include "common.hpp"
 #include "internal/move/move_structure.hpp"
 #include "internal/rlbwt/specializations/rlbwt_columns.hpp"
+#include "internal/rlbwt/specializations/rlbwt_permutation.hpp"
 
 // Shared implementation for both RLBWT column types
 template<typename RLBWTColsType = RLBWTCols, template<typename> class TableType = MoveVector>
@@ -17,14 +17,14 @@ public:
 
     RLBWTMoveStructure() = default;
 
-    RLBWTMoveStructure(const std::vector<uchar>& rlbwt_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const ulint domain, const uchar sigma, const SplitParams& split_params = SplitParams())
-    : Base(find_structure(rlbwt_chars, lengths, interval_permutation, domain, sigma, split_params), domain, lengths.size()) {}
+    RLBWTMoveStructure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const ulint domain, const uchar sigma, const SplitParams& split_params = SplitParams())
+    : Base(find_structure(head_chars, lengths, interval_permutation, domain, sigma, split_params), domain, lengths.size()) {}
 
-    template<typename PermutationType = Permutation>
-    RLBWTMoveStructure(const std::vector<uchar>& rlbwt_chars, const PermutationType& permutation, const uchar sigma) {
+    template<typename RLBWTPermutationType>
+    RLBWTMoveStructure(const RLBWTPermutationType& permutation) {
         this->n = permutation.domain();
         this->r = permutation.runs();
-        this->table = find_structure(rlbwt_chars, permutation, sigma);
+        this->table = find_structure(permutation);
     }
 
     RLBWTMoveStructure(PackedVector<Columns> &&structure, const size_t domain, ulint runs) : Base(std::move(structure), domain, runs) {}
@@ -32,21 +32,21 @@ public:
     static PackedVector<Columns> find_structure(const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const ulint domain, const uchar char_width, const SplitParams& split_params = SplitParams()) = delete;
 
     // When the permutation is not already computed
-    static PackedVector<Columns> find_structure(const std::vector<uchar>& rlbwt_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const ulint domain, const uchar sigma, const SplitParams& split_params = SplitParams()) {
-        assert(rlbwt_chars.size() == lengths.size());
+    static PackedVector<Columns> find_structure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const ulint domain, const uchar sigma, const SplitParams& split_params = SplitParams()) {
+        assert(head_chars.size() == lengths.size());
 
-        Permutation permutation(lengths, interval_permutation, split_params);
+        PermutationImpl<> permutation(lengths, interval_permutation, split_params);
         assert(permutation.runs() == lengths.size());
         assert(permutation.domain() == domain);
 
         PackedVector<Columns> structure(permutation.intervals(), get_move_widths(domain, permutation.intervals(), permutation.max_length(), sigma));
         Base::populate_structure(structure, permutation);
-        set_characters(structure, rlbwt_chars, lengths, domain);
+        set_characters(structure, head_chars, lengths, domain);
 
         return structure; 
     }
-    
-    template<typename PermutationType = Permutation>
+
+    template<typename PermutationType>
     static PackedVector<Columns> find_structure(const std::vector<uchar>& rlbwt_chars, const PermutationType& permutation, const uchar sigma) {
         assert(rlbwt_chars.size() == permutation.intervals());
 
@@ -55,6 +55,19 @@ public:
         Base::populate_structure(structure, permutation);
         // Set the character field
         set_characters(structure, rlbwt_chars);
+
+        return structure; 
+    }
+    
+    template<typename RLBWTPermutationType>
+    static PackedVector<Columns> find_structure(const RLBWTPermutationType& permutation) {
+        assert(permutation.get_heads().size() == permutation.intervals());
+
+        // Also initialize with the character width
+        PackedVector<Columns> structure(permutation.intervals(), get_move_widths(permutation.domain(), permutation.intervals(), permutation.max_length(), permutation.sigma()));
+        Base::populate_structure(structure, permutation);
+        // Set the character field
+        set_characters(structure, permutation.get_heads());
 
         return structure; 
     }
@@ -74,12 +87,12 @@ private:
     }
 
     // Copy characters over while accounting for splitting
-    template<typename PermutationType = Permutation>
-    static void set_characters(PackedVector<Columns>& structure, const std::vector<uchar>& rlbwt_chars) {
+    template<class Collection>
+    static void set_characters(PackedVector<Columns>& structure, const Collection& rlbwt_chars) {
         assert(rlbwt_chars.size() == structure.size());
 
         for (size_t i = 0; i < rlbwt_chars.size(); ++i) {
-            structure.template set<to_cols(ColsTraits::CHARACTER)>(i, rlbwt_chars[i]);
+            structure.template set<to_cols(ColsTraits::CHARACTER)>(i, static_cast<ulint>(rlbwt_chars[i]));
         }
     }
 

@@ -9,8 +9,8 @@
 #include <tuple>
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 2
-#define VERSION_PATCH 1
+#define VERSION_MINOR 4
+#define VERSION_PATCH 0
 #define VERSION_STRING VERSION_MAJOR "." VERSION_MINOR "." VERSION_PATCH
 
 size_t serialize_version(std::ostream& out) {

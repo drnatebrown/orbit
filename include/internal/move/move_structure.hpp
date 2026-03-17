@@ -11,8 +11,8 @@
 #include <algorithm>
 #include <numeric>
 
-#include "internal/common.hpp"
-#include "internal/permutation.hpp"
+#include "common.hpp"
+#include "internal/move/permutation_impl.hpp"
 #include "internal/move/move_table.hpp"
 #include "internal/move/move_splitting.hpp"
 
@@ -29,9 +29,9 @@ public:
     
     // Constructor from permutation data
     MoveStructure(const std::vector<ulint>& lengths, const std::vector<ulint>& interval_permutation, const SplitParams& split_params = SplitParams())
-    : MoveStructure(Permutation::from_lengths_and_interval_permutation(lengths, interval_permutation, split_params)) {}
+    : MoveStructure(PermutationImpl<>::from_lengths_and_interval_permutation(lengths, interval_permutation, split_params)) {}
 
-    template<typename PermutationType = Permutation>
+    template<typename PermutationType>
     MoveStructure(const PermutationType& permutation, const SplitParams& split_params = SplitParams()) {
         n = permutation.domain();
         r = permutation.runs();
@@ -42,7 +42,7 @@ public:
     MoveStructure(PackedVector<Columns> &&structure, const size_t domain, const ulint runs) 
         : table(std::move(structure)), n(domain), r(runs) {}
 
-    template<typename PermutationType = Permutation>
+    template<typename PermutationType>
     static PackedVector<Columns> find_structure(const PermutationType& permutation) {
         PackedVector<Columns> structure(permutation.intervals(), get_move_widths(permutation.domain(), permutation.intervals(), permutation.max_length()));
         populate_structure(structure, permutation);
@@ -228,7 +228,7 @@ protected:
         return widths;
     }
     
-    template<typename PermutationType = Permutation>
+    template<typename PermutationType>
     static void populate_structure(PackedVector<Columns>& structure, const PermutationType& permutation) {
         size_t start_val = 0;
         size_t output_start_val = 0;

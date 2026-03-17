@@ -1,13 +1,13 @@
 #ifndef _INTERNAL_RUNPERM_RLBWT_HPP
 #define _INTERNAL_RUNPERM_RLBWT_HPP
 
-#include "internal/common.hpp"
-#include "internal/permutation.hpp"
+#include "common.hpp"
 #include "internal/runperm/runperm.hpp"
 #include "internal/ds/alphabet.hpp"
 #include "internal/rlbwt/specializations/rlbwt_columns.hpp"
 #include "internal/rlbwt/specializations/rlbwt_structure.hpp"
 #include "internal/rlbwt/specializations/rlbwt_row.hpp"
+#include "internal/rlbwt/specializations/rlbwt_permutation.hpp"
 
 template<typename Derived,
          typename RunColsType,
@@ -21,7 +21,7 @@ class RunPermRLBWT : public RunPermImpl<RunColsType, IntegratedMoveStructure, St
 protected:
     using BaseColumns = typename Base::BaseColumns;
     using MoveStructurePerm = typename Base::MoveStructurePerm;
-
+    using RLBWTPermutation = RLBWTPermutationImpl<IntVectorAligned, AlphabetType>;
 public:
     // Sets Columns, ColsTraits, and NumCols
     MOVE_CLASS_TRAITS(RunColsType)
@@ -31,8 +31,22 @@ public:
 
     RunPermRLBWT() = default;
 
-    template<typename PermutationType = Permutation>
-    RunPermRLBWT(const PermutationType& permutation, const std::vector<RunData> &run_data) : Base(permutation, run_data) {}
+    template<typename RLBWTPermutationType>
+    RunPermRLBWT(const RLBWTPermutationType& permutation, const std::vector<RunData> &run_data) {
+        static_assert(std::is_same_v<AlphabetType, typename RLBWTPermutationType::AlphabetTag>, "AlphabetType must be the same as the alphabet type used to create the permutation");
+
+        Base::split_params_ = permutation.get_split_params();
+        alphabet = permutation.get_alphabet();
+        PackedVector<BaseColumns> base_structure = Base::MoveStructureBase::find_structure(permutation);
+        if (run_data.size() == permutation.intervals()) {
+            Base::populate_structure(std::move(base_structure), run_data, permutation.domain(), permutation.runs());
+        }
+        else if (run_data.size() == permutation.runs()) {
+            throw std::invalid_argument("Run data size is same as number of runs, not intervals after splitting; avoid splitting, manually split run data, or use permutation copy split.");
+        } else {
+            throw std::invalid_argument("Run data size must be the same as the number of intervals (user defined splits) or number of runs (no splitting).");
+        }
+    }
 
     template<class Container1, class Container2>
     RunPermRLBWT(const Container1 &rlbwt_heads, const Container2 &rlbwt_run_lengths, const std::vector<RunData> &run_data)
@@ -50,35 +64,33 @@ public:
     template<class Container1, class Container2>
     RunPermRLBWT(const Container1 &rlbwt_heads, const Container2 &rlbwt_run_lengths, const SplitParams &split_params, const std::vector<RunData> &run_data, std::function<RunData(ulint, ulint, ulint, ulint)> get_run_cols_data) {
         assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
-        size_t runs = rlbwt_heads.size();
 
-        alphabet = AlphabetType();
-        ulint bwt_length;
-        PackedVector<BaseColumns> base_structure;
-        find_permutation_and_alphabet(rlbwt_heads, rlbwt_run_lengths, alphabet, bwt_length, base_structure, split_params);
+        RLBWTPermutation permutation = find_permutation(rlbwt_heads, rlbwt_run_lengths, split_params);
+        alphabet = permutation.get_alphabet();
+        Base::split_params_ = split_params;
+        PackedVector<BaseColumns> base_structure = Base::MoveStructureBase::find_structure(permutation);
 
         if (split_params == NO_SPLITTING) {
-            Base::populate_structure(std::move(base_structure), run_data, bwt_length, runs);
+            Base::populate_structure(std::move(base_structure), run_data, permutation.domain(), permutation.runs());
         } else {
-            std::vector<RunData> final_run_data = Base::extend_run_data(rlbwt_run_lengths, base_structure, bwt_length, get_run_cols_data);
-            Base::populate_structure(std::move(base_structure), final_run_data, bwt_length, runs);
+            std::vector<RunData> final_run_data = Base::extend_run_data(rlbwt_run_lengths, base_structure, permutation.domain(), get_run_cols_data);
+            Base::populate_structure(std::move(base_structure), final_run_data, permutation.domain(), permutation.runs());
         }
     }
 
     template<class Container1, class Container2>
     RunPermRLBWT(const Container1 &rlbwt_heads, const Container2 &rlbwt_run_lengths, const SplitParams &split_params, std::function<RunData(ulint, ulint, ulint, ulint)> get_run_cols_data) {
         assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
-        size_t runs = rlbwt_heads.size();
 
-        alphabet = AlphabetType();
-        ulint bwt_length;
-        PackedVector<BaseColumns> base_structure;
-        find_permutation_and_alphabet(rlbwt_heads, rlbwt_run_lengths, alphabet, bwt_length, base_structure, split_params);
+        RLBWTPermutation permutation = find_permutation(rlbwt_heads, rlbwt_run_lengths, split_params);
+        alphabet = permutation.get_alphabet();
+        Base::split_params_ = split_params;
+        PackedVector<BaseColumns> base_structure = Base::MoveStructureBase::find_structure(permutation);
 
         /* extend_run_data is required when find_structure applies splitting:
            base_structure may have more rows than run_data; we copy run_data[orig_interval] for each split row */
-        std::vector<RunData> final_run_data = Base::extend_run_data(rlbwt_run_lengths, base_structure, bwt_length, get_run_cols_data);
-        Base::populate_structure(std::move(base_structure), final_run_data, bwt_length, runs);
+        std::vector<RunData> final_run_data = Base::extend_run_data(rlbwt_run_lengths, base_structure, permutation.domain(), get_run_cols_data);
+        Base::populate_structure(std::move(base_structure), final_run_data, permutation.domain(), permutation.runs());
     }
 
     static RunPermRLBWT from_structure(PackedVector<BaseColumns> &&structure, const size_t domain, const size_t runs) {
@@ -125,16 +137,12 @@ protected:
     AlphabetType alphabet;
 
     // Special logic for LF or FL
-    void find_permutation_and_alphabet(
+    RLBWTPermutation find_permutation(
         const std::vector<uchar>& rlbwt_heads,
         const std::vector<ulint>& rlbwt_run_lengths,
-        AlphabetType& alphabet,
-        ulint& bwt_length,
-        PackedVector<BaseColumns>& base_structure,
         const SplitParams& split_params
     ) {
-        return static_cast<Derived*>(this)->find_permutation_and_alphabet(
-            rlbwt_heads, rlbwt_run_lengths, alphabet, bwt_length, base_structure, split_params);
+        return static_cast<Derived*>(this)->find_permutation(rlbwt_heads, rlbwt_run_lengths, split_params);
     }
 };
 
@@ -153,6 +161,12 @@ public:
     using Position = typename RunPermRLBWTType::Position;
     
     MovePermRLBWT() = default;
+
+    template<typename RLBWTPermutationType>
+    MovePermRLBWT(const RLBWTPermutationType &permutation) {
+        std::vector<std::array<ulint, 0>> empty_run_data(permutation.intervals());
+        run_perm_rlbwt = RunPermRLBWTType(permutation, empty_run_data);
+    }
 
     MovePermRLBWT(const std::vector<uchar> &bwt, SplitParams split_params = SplitParams()) {
         auto [rlbwt_heads, rlbwt_run_lengths] = bwt_to_rlbwt(bwt);

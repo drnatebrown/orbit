@@ -1,7 +1,7 @@
 #ifndef _MOVE_SPLITTING_HH
 #define _MOVE_SPLITTING_HH
 
-#include "internal/common.hpp"
+#include "common.hpp"
 #include <cmath>
 #include <cassert>
 #include <optional>

@@ -1,7 +1,7 @@
 #ifndef _PERMUTATION_HPP
 #define _PERMUTATION_HPP
 
-#include "internal/common.hpp"
+#include "common.hpp"
 #include "internal/ds/packed_vector.hpp"
 #include "internal/ds/packed_vector_aligned.hpp"
 #include "internal/move/move_splitting.hpp"
@@ -115,8 +115,8 @@ public:
     static PermutationImpl<IntVectorType> from_lengths_and_tau_inv(const Container1& lengths, const Container2& tau_inv, const size_t domain, const ulint max_length, const SplitParams& split_params = SplitParams()) {
         assert(lengths.size() == tau_inv.size());
         PermutationImpl<IntVectorType> permutation;
-        permutation.set_initial_values(domain, lengths.size(), max_length);
-        permutation.init_tau_inv(lengths, tau_inv, split_params);
+        permutation.set_initial_values(domain, lengths.size(), max_length, split_params);
+        permutation.init_tau_inv(lengths, tau_inv);
         return permutation;
     }
 
@@ -133,8 +133,8 @@ public:
         assert(lengths.size() == tau.size());
 
         PermutationImpl<IntVectorType> permutation;
-        permutation.set_initial_values(domain, lengths.size(), max_length);
-        permutation.init_tau(lengths, tau, split_params);
+        permutation.set_initial_values(domain, lengths.size(), max_length, split_params);
+        permutation.init_tau(lengths, tau);
         return permutation;
     }
 
@@ -242,7 +242,7 @@ public:
         return split_params_;
     }
 
-private:
+protected:
     IntVectorType lengths;
     IntVectorType tau_inv;
     SplitParams split_params_;
@@ -251,16 +251,15 @@ private:
     size_t intervals_;
     ulint max_length_;
 
-    void set_initial_values(size_t domain, size_t runs, ulint max_length) {
+    void set_initial_values(size_t domain, size_t runs, ulint max_length, const SplitParams& split_params) {
         this->domain_ = domain;
         this->runs_ = runs;
         this->max_length_ = max_length;
+        this->split_params_ = split_params;
     }
     
     template<class Container1, class Container2>
-    void init_tau(const Container1& lengths, const Container2& tau, const SplitParams& split_params) {
-        this->split_params_ = split_params;
-
+    void init_tau(const Container1& lengths, const Container2& tau) {
         uchar length_bits = bit_width(this->max_length_);
         uchar tau_inv_bits = bit_width(this->runs_ - 1);
 
@@ -281,9 +280,7 @@ private:
     }
 
     template<class Container1, class Container2>
-    void init_tau_inv(const Container1& lengths, const Container2& tau_inv, const SplitParams& split_params) {
-        this->split_params_ = split_params;
-        
+    void init_tau_inv(const Container1& lengths, const Container2& tau_inv) { 
         uchar length_bits = bit_width(this->max_length_);
         uchar tau_inv_bits = bit_width(this->runs_ - 1);
 
@@ -325,7 +322,5 @@ private:
         }
     }
 };
-
-using Permutation = PermutationImpl<>;
 
 #endif // end include guard _PERMUTATION_HPP

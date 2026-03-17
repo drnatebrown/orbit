@@ -436,7 +436,7 @@ void run_phi_invphi_benchmarks(const vector<uchar> &bwt_heads,
     size_t invphi_domain;
     ulint max_length_inv;
     auto t_invphi_derive = high_resolution_clock::now();
-    auto [invphi_lengths, invphi_tau_inv] = phi::rlbwt_to_invphi_tau_inv<AlphabetType>(bwt_heads, bwt_run_lengths, &invphi_domain, &max_length_inv);
+    auto [invphi_lengths, invphi_tau_inv] = invphi::rlbwt_to_invphi_tau_inv<AlphabetType>(bwt_heads, bwt_run_lengths, &invphi_domain, &max_length_inv);
     auto t_invphi_derive_end = high_resolution_clock::now();
     auto invphi_derive_duration = duration_cast<microseconds>(t_invphi_derive_end - t_invphi_derive);
     cout << "    InvPhi derivation: " << invphi_derive_duration.count() << "us" << endl;

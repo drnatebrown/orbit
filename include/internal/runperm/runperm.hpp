@@ -1,8 +1,8 @@
 #ifndef _INTERNAL_RUNPERM_HPP
 #define _INTERNAL_RUNPERM_HPP
 
-#include "internal/common.hpp"
-#include "internal/permutation.hpp"
+#include "common.hpp"
+#include "internal/move/permutation_impl.hpp"
 #include "internal/move/move_structure.hpp"
 #include "internal/runperm/run_columns.hpp"
 
@@ -73,7 +73,7 @@ public:
     RunPermImpl() = default;
 
     // Intended constructor for manual splitting of run data
-    template<typename PermutationType = Permutation>
+    template<typename PermutationType>
     RunPermImpl(const PermutationType& permutation, const std::vector<RunData> &run_data) {
         split_params_ = permutation.get_split_params();
         PackedVector<BaseColumns> base_structure = MoveStructureBase::find_structure(permutation);
@@ -115,7 +115,7 @@ public:
         split_params_ = split_params;
 
         // Find the base structure (move structure without run data)
-        auto permutation = Permutation::from_lengths_and_interval_permutation(lengths, interval_permutation, split_params);
+        auto permutation = PermutationImpl<>::from_lengths_and_interval_permutation(lengths, interval_permutation, split_params);
         size_t domain = permutation.domain();
         size_t runs = permutation.runs();
         PackedVector<BaseColumns> base_structure = MoveStructureBase::find_structure(permutation);
@@ -143,7 +143,7 @@ public:
         split_params_ = split_params;
 
         // Find the base structure (move structure without run data)
-        auto permutation = Permutation::from_lengths_and_interval_permutation(lengths, interval_permutation, split_params);
+        auto permutation = PermutationImpl<>::from_lengths_and_interval_permutation(lengths, interval_permutation, split_params);
         size_t domain = permutation.domain();
         size_t runs = permutation.runs();
         PackedVector<BaseColumns> base_structure = MoveStructureBase::find_structure(permutation);
@@ -496,7 +496,7 @@ public:
         run_perm = RunPermType(lengths, interval_permutation, split_params, empty_run_data);
     }
 
-    template<typename PermutationType = Permutation>
+    template<typename PermutationType>
     MovePermImpl(const PermutationType& permutation) {
         std::vector<std::array<ulint, 0>> empty_run_data(permutation.intervals());
         run_perm = RunPermType(permutation, empty_run_data);

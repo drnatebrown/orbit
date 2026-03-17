@@ -433,7 +433,7 @@ void test_runperm_invphi(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_ru
 
     size_t inv_domain;
     ulint max_length_inv;
-    auto [invphi_lengths, invphi_interval_permutations] = phi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
+    auto [invphi_lengths, invphi_interval_permutations] = invphi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
     RunPermInvPhi<RunData> runperm_invphi(invphi_lengths, invphi_interval_permutations, run_data);
             
     runperm_invphi.first();
@@ -459,7 +459,7 @@ void test_runperm_invphi(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_ru
 void test_move_invphi(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_lengths, std::vector<ulint> sa) {
     size_t inv_domain;
     ulint max_length_inv;
-    auto [invphi_lengths, invphi_interval_permutations] = phi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
+    auto [invphi_lengths, invphi_interval_permutations] = invphi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
     MoveInvPhi move_invphi(invphi_lengths, invphi_interval_permutations);
                 using Position = typename MoveInvPhi::Position;
     Position pos = move_invphi.first();
@@ -483,7 +483,7 @@ void test_move_invphi(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_l
 void test_move_invphi_with_splitting(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_lengths, std::vector<ulint> sa) {
     size_t inv_domain;
     ulint max_length_inv;
-    auto [invphi_lengths, invphi_interval_permutations] = phi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
+    auto [invphi_lengths, invphi_interval_permutations] = invphi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
     MoveInvPhi move_invphi(invphi_lengths, invphi_interval_permutations, DEFAULT_SPLITTING);
                 using Position = typename MoveInvPhi::Position;
     Position pos = move_invphi.first();

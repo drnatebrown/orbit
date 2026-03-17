@@ -3,7 +3,7 @@
 
 #include "internal/move/move_splitting.hpp"
 #include "internal/ds/packed_vector.hpp"
-#include "internal/permutation.hpp"
+#include "permutation.hpp"
 
 #include <cassert>
 #include <iostream>

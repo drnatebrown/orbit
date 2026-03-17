@@ -1,8 +1,8 @@
 // Unit tests for PermutationImpl and permutation helpers.
 // Simple assert-based tests, no external framework.
 
-#include "internal/permutation.hpp"
-#include "internal/common.hpp"
+#include "permutation.hpp"
+#include "common.hpp"
 #include "internal/ds/packed_vector.hpp"
 #include "internal/move/move_splitting.hpp"
 

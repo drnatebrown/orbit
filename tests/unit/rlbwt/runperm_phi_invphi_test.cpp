@@ -21,7 +21,7 @@ void test_phi_invphi_structure_on_small_rlbwt() {
     auto [phi_lengths, phi_perm] = phi::rlbwt_to_phi(heads, lens, &phi_domain, &max_length);
     size_t inv_domain;
     ulint max_length_inv;
-    auto [inv_lengths, inv_perm] = phi::rlbwt_to_invphi(heads, lens, &inv_domain, &max_length_inv);
+    auto [inv_lengths, inv_perm] = invphi::rlbwt_to_invphi(heads, lens, &inv_domain, &max_length_inv);
 
     assert(phi_domain == 27);
     assert(inv_domain == 27);
@@ -52,7 +52,7 @@ void test_runperm_phi_invphi_wrapper_equivalence() {
     auto [phi_lengths, phi_perm] = phi::rlbwt_to_phi(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
     size_t inv_domain;
     ulint max_length_inv;
-    auto [inv_lengths, inv_perm] = phi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
+    auto [inv_lengths, inv_perm] = invphi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
 
     assert(phi_domain == inv_domain);
 
@@ -111,10 +111,10 @@ void test_runperm_invphi_tau_inv_wrapper_equivalence() {
 
     size_t inv_domain_1;
     ulint max_length_inv_1;
-    auto [inv_lengths_1, inv_perm] = phi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain_1, &max_length_inv_1);
+    auto [inv_lengths_1, inv_perm] = invphi::rlbwt_to_invphi(bwt_heads, bwt_run_lengths, &inv_domain_1, &max_length_inv_1);
     size_t inv_domain_2;
     ulint max_length_inv_2;
-    auto [inv_lengths_2, invphi_tau_inv] = phi::rlbwt_to_invphi_tau_inv(bwt_heads, bwt_run_lengths, &inv_domain_2, &max_length_inv_2);
+    auto [inv_lengths_2, invphi_tau_inv] = invphi::rlbwt_to_invphi_tau_inv(bwt_heads, bwt_run_lengths, &inv_domain_2, &max_length_inv_2);
 
     assert(inv_domain_1 == inv_domain_2);
     assert(inv_lengths_1.size() == inv_lengths_2.size());
@@ -167,7 +167,7 @@ void test_phi_and_invphi_tau_inv_equivalence() {
     auto [phi_lengths, phi_tau_inv] = phi::rlbwt_to_phi_tau_inv(bwt_heads, bwt_run_lengths, &phi_domain, &max_length_phi);
     size_t inv_domain;
     ulint max_length_inv;
-    auto [inv_lengths, inv_tau_inv] = phi::rlbwt_to_invphi_tau_inv(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
+    auto [inv_lengths, inv_tau_inv] = invphi::rlbwt_to_invphi_tau_inv(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
 
     assert(phi_domain == inv_domain);
     assert(phi_lengths.size() == inv_lengths.size());
