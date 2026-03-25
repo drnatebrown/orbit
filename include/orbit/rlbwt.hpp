@@ -165,18 +165,20 @@ public:
 // Need to call rlbwt_to_phi(rlbwt_heads, rlbwt_run_lengths) to get interval encoding
 // Otherwise, same as runperm
 // runperm_phi is just a named specilization which sets store_absolute_positions to true
+// also lets set exponential_search to true or false
 // Also implements phi(pos), phi(pos, steps), sa(pos)
 
-// === move_phi ===
+// === num_bits_type ===
 // See above
 
 // === runperm_invphi ===
 // Need to call rlbwt_to_invphi(rlbwt_heads, rlbwt_run_lengths) to get interval encoding
 // Otherwise, same as runperm -->
 // runperm_invphi is just a named specilization which sets store_absolute_positions to true
+// also lets set exponential_search to true or false
 // Also implements invphi(pos), invphi(pos, steps), sa(pos)
 
-// === move_invphi ===
+// === move_invphi<> ===
 // See above
 
 } // end namespace orbit::rlbwt

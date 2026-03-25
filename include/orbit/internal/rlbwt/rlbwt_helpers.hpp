@@ -5,6 +5,20 @@
 
 namespace orbit::rlbwt {
 
+inline std::pair<std::vector<uchar>, std::vector<ulint>> bwt_to_rlbwt(const std::vector<uchar> &bwt_chars) {
+    std::vector<uchar> rlbwt_chars;
+    std::vector<ulint> rlbwt_run_lengths;
+    for (size_t i = 0; i < bwt_chars.size(); ++i) {
+        if (i == 0 || bwt_chars[i] != bwt_chars[i - 1]) {
+            rlbwt_chars.push_back(bwt_chars[i]);
+            rlbwt_run_lengths.push_back(1);
+        } else {
+            ++rlbwt_run_lengths.back();
+        }
+    }
+    return {rlbwt_chars, rlbwt_run_lengths};
+}
+
 inline std::tuple<std::vector<size_t>, std::vector<size_t>, ulint> get_LF_char_counts(const std::vector<uchar> &rlbwt_heads, const std::vector<ulint> &rlbwt_run_lengths) {
     assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
 

@@ -21,9 +21,9 @@ void test_move_row_relative_basic() {
 
     Row row;
 
-    ulint primary = static_cast<ulint>(123) & MASK(Row::row_traits::PRIMARY_BITS);
-    ulint pointer = static_cast<ulint>(456) & MASK(Row::row_traits::POINTER_BITS);
-    ulint offset  = static_cast<ulint>(789) & MASK(Row::row_traits::OFFSET_BITS);
+    ulint primary = static_cast<ulint>(123) & mask(Row::row_traits::PRIMARY_BITS);
+    ulint pointer = static_cast<ulint>(456) & mask(Row::row_traits::POINTER_BITS);
+    ulint offset  = static_cast<ulint>(789) & mask(Row::row_traits::OFFSET_BITS);
 
     row.set<move_columns::LENGTH>(primary);
     row.set<move_columns::POINTER>(pointer);
@@ -51,9 +51,9 @@ void test_move_row_absolute_basic() {
 
     Row row;
 
-    ulint start   = static_cast<ulint>(42) & MASK(Row::row_traits::PRIMARY_BITS);
-    ulint pointer = static_cast<ulint>(17) & MASK(Row::row_traits::POINTER_BITS);
-    ulint offset  = static_cast<ulint>(9)  & MASK(Row::row_traits::OFFSET_BITS);
+    ulint start   = static_cast<ulint>(42) & mask(Row::row_traits::PRIMARY_BITS);
+    ulint pointer = static_cast<ulint>(17) & mask(Row::row_traits::POINTER_BITS);
+    ulint offset  = static_cast<ulint>(9)  & mask(Row::row_traits::OFFSET_BITS);
 
     row.set<move_columns_idx::START>(start);
     row.set<move_columns_idx::POINTER>(pointer);
@@ -123,11 +123,11 @@ void test_move_table_from_packed_vector_relative() {
     for (size_t i = 0; i < rows; ++i) {
         array<ulint, NumCols> values{};
         values[static_cast<size_t>(Columns::LENGTH)] =
-            static_cast<ulint>((i + 1) & MASK(widths[static_cast<size_t>(Columns::LENGTH)]));
+            static_cast<ulint>((i + 1) & mask(widths[static_cast<size_t>(Columns::LENGTH)]));
         values[static_cast<size_t>(Columns::POINTER)] =
-            static_cast<ulint>((i * 7) & MASK(widths[static_cast<size_t>(Columns::POINTER)]));
+            static_cast<ulint>((i * 7) & mask(widths[static_cast<size_t>(Columns::POINTER)]));
         values[static_cast<size_t>(Columns::OFFSET)] =
-            static_cast<ulint>((i * 11) & MASK(widths[static_cast<size_t>(Columns::OFFSET)]));
+            static_cast<ulint>((i * 11) & mask(widths[static_cast<size_t>(Columns::OFFSET)]));
         vec.set_row(i, values);
     }
 
@@ -138,11 +138,11 @@ void test_move_table_from_packed_vector_relative() {
         auto row = table.get_row(i);
 
         ulint expected_length =
-            static_cast<ulint>((i + 1) & MASK(widths[static_cast<size_t>(Columns::LENGTH)]));
+            static_cast<ulint>((i + 1) & mask(widths[static_cast<size_t>(Columns::LENGTH)]));
         ulint expected_pointer =
-            static_cast<ulint>((i * 7) & MASK(widths[static_cast<size_t>(Columns::POINTER)]));
+            static_cast<ulint>((i * 7) & mask(widths[static_cast<size_t>(Columns::POINTER)]));
         ulint expected_offset =
-            static_cast<ulint>((i * 11) & MASK(widths[static_cast<size_t>(Columns::OFFSET)]));
+            static_cast<ulint>((i * 11) & mask(widths[static_cast<size_t>(Columns::OFFSET)]));
 
         assert(row[static_cast<size_t>(Columns::LENGTH)] == expected_length);
         assert(row[static_cast<size_t>(Columns::POINTER)] == expected_pointer);
@@ -239,7 +239,7 @@ void test_move_table_bits_needed() {
     const auto &widths = tmp.get_widths();
 
     const size_t rows = 10;
-    size_t expected_bits = BYTES_TO_BITS(sizeof(typename Table::row)) * rows;
+    size_t expected_bits = bytes_to_bits(sizeof(typename Table::row)) * rows;
     size_t computed_bits = Table::bits_needed(rows, widths);
     assert(computed_bits == expected_bits);
 }

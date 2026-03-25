@@ -10,10 +10,28 @@
 
 namespace orbit {
 
-#define VERSION_MAJOR 0
-#define VERSION_MINOR 4
-#define VERSION_PATCH 0
-#define VERSION_STRING VERSION_MAJOR "." VERSION_MINOR "." VERSION_PATCH
+typedef unsigned char uchar;
+typedef unsigned long int ulint;
+
+// LEAVE UNCHANGED
+inline constexpr size_t MAX_ALPHABET_SIZE = 256;
+inline constexpr size_t RW_BYTES = 5;
+
+// CONFIGURABLE ===============================================================
+inline constexpr uchar TERMINATOR = 0;
+inline constexpr uchar SEPARATOR = 1;
+
+inline constexpr size_t START_BYTES = 5;
+inline constexpr size_t LENGTH_BYTES = 2;
+inline constexpr size_t POINTER_BYTES = 4;
+inline constexpr size_t OFFSET_BYTES = 2;
+inline constexpr size_t CHARACTER_BYTES = 1;
+inline constexpr size_t DEFAULT_BYTES = 4;
+// END CONFIGURABLE ===========================================================
+
+inline constexpr size_t VERSION_MAJOR = 0;
+inline constexpr size_t VERSION_MINOR = 4;
+inline constexpr size_t VERSION_PATCH = 0;
 
 size_t serialize_version(std::ostream& out) {
     size_t written_bytes = 0;
@@ -37,40 +55,23 @@ std::tuple<size_t, size_t, size_t> load_version(std::istream& is) {
     return {major, minor, patch};
 }
 
-// LEAVE UNCHANGED
-#define MAX_ALPHABET_SIZE 256
-#define RW_BYTES 5
+inline constexpr size_t bytes_to_bits(size_t bytes) { return bytes * 8; }
+inline constexpr size_t bits_to_bytes(size_t bits) { return bits / 8; }
+#define num_bits_type(type) bytes_to_bits(sizeof(type))
+inline constexpr size_t ceil_div(size_t num, size_t den) { return (num + den - 1) / den; }
+inline constexpr size_t pow2(size_t bits) { return 1ULL << bits; }
+inline constexpr size_t max_val(size_t bits) { return pow2(bits) - 1; }
+inline constexpr size_t mask(size_t bits) { return max_val(bits); }
 
-// CONFIGURABLE
-#define TERMINATOR 0
-#define SEPARATOR 1
+inline constexpr const char MOVE_STRUCTURE_EXTENSION[] = ".move";
 
-#define START_BYTES 5
-#define LENGTH_BYTES 2
-#define POINTER_BYTES 4
-#define OFFSET_BYTES 2
-#define CHARACTER_BYTES 1
-#define DEFAULT_BYTES 4
-
-#define BYTES_TO_BITS(bytes) ((bytes) * 8)
-#define BITS_TO_BYTES(bits) ((bits) / 8)
-#define NUM_BITS(type) (BYTES_TO_BITS(sizeof(type))) 
-#define CEIL_DIV(num, den) ((num + den - 1) / den)
-#define POW2(bits) (1ULL << (bits))
-#define MAX_VAL(bits) (POW2(bits) - 1)
-#define MASK(bits) MAX_VAL(bits)
-
-#define MOVE_STRUCTURE_EXTENSION ".move"
-
-typedef unsigned char uchar;
-typedef unsigned long int ulint;
-
-constexpr uchar bit_width(ulint value) {
+inline constexpr uchar bit_width(ulint value) {
     return value == 0 ? 1 : 64 - __builtin_clzll(value);
 }
 
+//
 // ENUM REPRESENTS COLUMNS, USE ENUM HELPERS TO ENFORCE STRUCTURE
-// in common.hpp (or an internal traits header)
+// in common.hpp (or an internal traits header
 template<class, class = void>
 struct has_count_enumerator : std::false_type {};
 
@@ -78,10 +79,10 @@ template<class E>
 struct has_count_enumerator<E, std::void_t<decltype(E::COUNT)>> : std::true_type {};
 
 template<class E>
-constexpr size_t to_index(E e) noexcept { return static_cast<size_t>(e); }
+inline constexpr size_t to_index(E e) noexcept { return static_cast<size_t>(e); }
 
 template<class E>
-constexpr size_t num_columns() noexcept {
+inline constexpr size_t num_columns() noexcept {
     return static_cast<size_t>(E::COUNT);
 }
 
@@ -101,20 +102,6 @@ using columns_tuple = std::array<T, num_columns<E>()>;
     using cols_traits = typename resolve_cols_traits<columns>::type;  \
     static constexpr size_t num_cols = cols_traits::NUM_COLS; \
     template<typename E> static constexpr columns to_cols(E e) { return static_cast<columns>(e); }
-
-inline std::pair<std::vector<uchar>, std::vector<ulint>> bwt_to_rlbwt(const std::vector<uchar> &bwt_chars) {
-    std::vector<uchar> rlbwt_chars;
-    std::vector<ulint> rlbwt_run_lengths;
-    for (size_t i = 0; i < bwt_chars.size(); ++i) {
-        if (i == 0 || bwt_chars[i] != bwt_chars[i - 1]) {
-            rlbwt_chars.push_back(bwt_chars[i]);
-            rlbwt_run_lengths.push_back(1);
-        } else {
-            ++rlbwt_run_lengths.back();
-        }
-    }
-    return {rlbwt_chars, rlbwt_run_lengths};
-}
 
 } // namespace orbit
 

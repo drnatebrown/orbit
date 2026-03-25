@@ -214,7 +214,7 @@ protected:
     static std::array<uchar, num_cols> get_move_widths(const ulint domain, const ulint intervals, const ulint max_length) {
         std::array<uchar, num_cols> widths = {0};
         for (size_t i = 0; i < num_cols; ++i) {
-            widths[i] = BYTES_TO_BITS(DEFAULT_BYTES);
+            widths[i] = bytes_to_bits(DEFAULT_BYTES);
         }
 
         if constexpr (cols_traits::RELATIVE) {

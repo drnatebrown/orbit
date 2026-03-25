@@ -371,8 +371,8 @@ void test_move_phi_with_splitting(std::vector<uchar> bwt_heads, std::vector<ulin
     size_t phi_domain;
     ulint max_length;
     auto [phi_lengths, phi_interval_permutations] = rlbwt_to_phi_interval_permutation(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
-    move_phi move_phi_obj(phi_lengths, phi_interval_permutations, DEFAULT_SPLITTING);
-    using position = typename move_phi::position;
+    move_phi<> move_phi_obj(phi_lengths, phi_interval_permutations, DEFAULT_SPLITTING);
+    using position = typename move_phi<>::position;
     position pos = move_phi_obj.first();
     for (size_t i = 0; i < move_phi_obj.domain(); ++i) {
         pos = move_phi_obj.next(pos);
@@ -396,8 +396,8 @@ void test_move_phi(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_leng
     size_t phi_domain;
     ulint max_length;
     auto [phi_lengths, phi_interval_permutations] = rlbwt_to_phi_interval_permutation(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
-    move_phi move_phi_obj(phi_lengths, phi_interval_permutations);
-    using position = typename move_phi::position;
+    move_phi<> move_phi_obj(phi_lengths, phi_interval_permutations);
+    using position = typename move_phi<>::position;
     position pos = move_phi_obj.first();
     for (size_t i = 0; i < move_phi_obj.domain(); ++i) {
         pos = move_phi_obj.next(pos);
@@ -463,8 +463,8 @@ void test_move_invphi(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_l
     size_t inv_domain;
     ulint max_length_inv;
     auto [invphi_lengths, invphi_interval_permutations] = rlbwt_to_invphi_interval_permutation(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
-    move_invphi move_invphi_obj(invphi_lengths, invphi_interval_permutations);
-    using position = typename move_invphi::position;
+    move_invphi<> move_invphi_obj(invphi_lengths, invphi_interval_permutations);
+    using position = typename move_invphi<>::position;
     position pos = move_invphi_obj.first();
     for (size_t i = 0; i < move_invphi_obj.domain(); ++i) {
         pos = move_invphi_obj.next(pos);
@@ -487,8 +487,8 @@ void test_move_invphi_with_splitting(std::vector<uchar> bwt_heads, std::vector<u
     size_t inv_domain;
     ulint max_length_inv;
     auto [invphi_lengths, invphi_interval_permutations] = rlbwt_to_invphi_interval_permutation(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
-    move_invphi move_invphi_obj(invphi_lengths, invphi_interval_permutations, DEFAULT_SPLITTING);
-    using position = typename move_invphi::position;
+    move_invphi<> move_invphi_obj(invphi_lengths, invphi_interval_permutations, DEFAULT_SPLITTING);
+    using position = typename move_invphi<>::position;
     position pos = move_invphi_obj.first();
     for (size_t i = 0; i < move_invphi_obj.domain(); ++i) {
         pos = move_invphi_obj.next(pos);

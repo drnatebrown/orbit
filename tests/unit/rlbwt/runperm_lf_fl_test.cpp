@@ -199,6 +199,49 @@ void test_runpermlf_construct_from_precomputed_permutation_with_splitting() {
     }
 }
 
+void test_bwt_to_rlbwt_basic() {
+    {
+        // Empty input -> empty output.
+        vector<uchar> bwt;
+        auto [heads, lengths] = bwt_to_rlbwt(bwt);
+        assert(heads.empty());
+        assert(lengths.empty());
+    }
+    {
+        // Single run.
+        vector<uchar> bwt = {'A', 'A', 'A'};
+        auto [heads, lengths] = bwt_to_rlbwt(bwt);
+        assert(heads.size() == 1);
+        assert(lengths.size() == 1);
+        assert(heads[0] == static_cast<uchar>('A'));
+        assert(lengths[0] == 3);
+    }
+    {
+        // Multiple runs.
+        vector<uchar> bwt = {'A', 'A', 'C', 'C', 'C', 'G', 'G'};
+        auto [heads, lengths] = bwt_to_rlbwt(bwt);
+
+        assert(heads.size() == 3);
+        assert(lengths.size() == 3);
+
+        assert(heads[0] == static_cast<uchar>('A'));
+        assert(lengths[0] == 2);
+
+        assert(heads[1] == static_cast<uchar>('C'));
+        assert(lengths[1] == 3);
+
+        assert(heads[2] == static_cast<uchar>('G'));
+        assert(lengths[2] == 2);
+
+        // Sum of run lengths equals original length.
+        ulint total = 0;
+        for (ulint v : lengths) {
+            total += v;
+        }
+        assert(total == bwt.size());
+    }
+}
+
 int main() {
     test_move_lf_wrapper_equivalence();
     test_runperm_lf_wrapper_equivalence();
@@ -206,6 +249,7 @@ int main() {
     test_runperm_fl_wrapper_equivalence();
     test_runpermlf_construct_from_precomputed_permutation_no_splitting();
     test_runpermlf_construct_from_precomputed_permutation_with_splitting();
+    test_bwt_to_rlbwt_basic();
 
     std::cout << "runperm_lf_fl unit tests passed" << std::endl;
     return 0;

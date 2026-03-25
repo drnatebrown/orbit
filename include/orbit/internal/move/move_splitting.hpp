@@ -92,7 +92,7 @@ inline void split_by_length_capping(
     double avg_run_length = static_cast<double>(domain) / static_cast<double>(lengths.size());
     ulint desired_max_allowed_length = static_cast<ulint>(std::ceil(avg_run_length * length_capping_factor));
     uchar bits = bit_width(desired_max_allowed_length);
-    ulint max_allowed_length = MAX_VAL(bits);
+    ulint max_allowed_length = max_val(bits);
 
     size_t new_intervals_upper_bound = std::ceil(static_cast<double>(lengths.size()) / length_capping_factor);
 

@@ -9,7 +9,7 @@
 
 namespace orbit {
 
-static constexpr uchar UNMAPPED = MAX_VAL(BYTES_TO_BITS(sizeof(uchar)));
+static constexpr uchar UNMAPPED = max_val(bytes_to_bits(sizeof(uchar)));
 
 class alphabet
 {

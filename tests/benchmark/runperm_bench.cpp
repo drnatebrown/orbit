@@ -171,8 +171,8 @@ void run_benchmarks() {
                 
             auto [lengths, interval_permutation] = get_permutation_intervals(test_perm);
 
-            size_t val1_max = MAX_VAL(32);
-            size_t val2_max = MAX_VAL(55);
+            size_t val1_max = max_val(32);
+            size_t val2_max = max_val(55);
             
             enum class RunData {
                 VAL_1,

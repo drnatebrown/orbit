@@ -182,7 +182,7 @@ void example3() {
 
     std::cout << "Length Capping Factor: " << sp.length_capping.value() << std::endl;
     std::cout << "Capped Length (n/r * length_capping_factor): " << static_cast<ulint>(std::ceil(static_cast<double>(mp_relative.domain()) / static_cast<double>(lengths.size()) * sp.length_capping.value())) << std::endl;
-    std::cout << "Round up to use all log2(n/r * length_capping_factor) bits: " << MAX_VAL(orbit::bit_width(static_cast<ulint>(std::ceil(static_cast<double>(mp_relative.domain()) / static_cast<double>(lengths.size()) * sp.length_capping.value())))) << std::endl;
+    std::cout << "Round up to use all log2(n/r * length_capping_factor) bits: " << orbit::max_val(orbit::bit_width(static_cast<ulint>(std::ceil(static_cast<double>(mp_relative.domain()) / static_cast<double>(lengths.size()) * sp.length_capping.value())))) << std::endl;
 
     std::cout << "\nMove Permutation (Relative):" << std::endl;
     orbit::moveperm_relative mp_relative_split(lengths, interval_permutation, sp);
@@ -256,7 +256,7 @@ void example6() {
     std::cout << "Input RLBWT: (T, 5), (C, 3), (G, 3), (A, 3), (T, 1), ($, 1), (A, 1), (T, 4), (A, 6)" << std::endl;
 
     auto permutation = orbit::rlbwt::rlbwt_to_phi(bwt_heads, bwt_run_lengths);
-    orbit::rlbwt::move_invphi move_invphi(permutation);
+    orbit::rlbwt::move_invphi<> move_invphi(permutation);
     auto pos = move_invphi.last();
     std::vector<ulint> sa_recovered(domain);
     for (size_t i = 0; i < domain; ++i) {

@@ -22,7 +22,7 @@ public:
 
     // We read ulint at a time, this ensures we never need to read more than one ulint
     // should be 57 bits for 64 bit ulint and 8 bit word_t
-    constexpr static uchar max_width = NUM_BITS(ulint) - (NUM_BITS(word_t) - 1);
+    constexpr static uchar max_width = num_bits_type(ulint) - (num_bits_type(word_t) - 1);
 
     packed_matrix() = default;
     packed_matrix(const ulint rows, const std::array<uchar, num_cols>& widths) {
@@ -53,7 +53,7 @@ public:
     void set(size_t row, ulint val) {
         static_assert(col < num_cols, "Column out of bounds");
         assert(row < num_rows);
-        assert(val < POW2(widths[col]));
+        assert(val < pow2(widths[col]));
 
         bit_pos pos(get_row_start(row) + offsets[col]);
 
@@ -84,7 +84,7 @@ public:
     [[nodiscard]] size_t rows() const noexcept { return num_rows; }
     [[nodiscard]] static constexpr size_t cols() noexcept { return num_cols; }
     [[nodiscard]] size_t data_size() const noexcept {
-        return CEIL_DIV(vector_width, NUM_BITS(word_t)) + sizeof(ulint)/sizeof(word_t);
+        return ceil_div(vector_width, num_bits_type(word_t)) + sizeof(ulint)/sizeof(word_t);
     }
     [[nodiscard]] const std::array<uchar, num_cols>& get_widths() const noexcept { return widths; }
 
@@ -134,7 +134,7 @@ private:
     std::array<uchar, num_cols> widths; // Bit width of each column
     std::array<uint16_t, num_cols> offsets; // Offset of the first bit of each column in the vector
     std::array<ulint, num_cols> masks_extract; // Mask of the bits of each column for get
-    std::array<std::array<ulint, num_cols>, NUM_BITS(word_t)> masks_write; // The mask for each offset to reset the bits
+    std::array<std::array<ulint, num_cols>, num_bits_type(word_t)> masks_write; // The mask for each offset to reset the bits
 
     std::vector<word_t> data;
 
@@ -143,8 +143,8 @@ private:
         for (size_t i = 0; i < num_cols; i++) {
             assert(widths[i] <= max_width);
             offsets[i] = bit_pos;
-            masks_extract[i] = MASK(widths[i]);
-            for (size_t j = 0; j < NUM_BITS(word_t); j++) {
+            masks_extract[i] = mask(widths[i]);
+            for (size_t j = 0; j < num_bits_type(word_t); j++) {
                 masks_write[j][i] = ~(masks_extract[i] << j);
             }
             bit_pos += widths[i];
@@ -159,8 +159,8 @@ private:
         ulint offset;
 
         bit_pos(size_t bit) {
-            chunk = bit / NUM_BITS(word_t);
-            offset = bit % NUM_BITS(word_t);
+            chunk = bit / num_bits_type(word_t);
+            offset = bit % num_bits_type(word_t);
         }
     };
 

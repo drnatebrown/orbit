@@ -22,7 +22,7 @@ public:
     using word_t = uchar;
 
     // We read ulint at a time, this ensures we never need to read more than one ulint
-    constexpr static uchar max_width = NUM_BITS(ulint); // should be 64 bits
+    constexpr static uchar max_width = num_bits_type(ulint); // should be 64 bits
 
     packed_matrix_aligned() = default;
     packed_matrix_aligned(const ulint rows, const std::array<uchar, num_cols>& widths) {
@@ -53,7 +53,7 @@ public:
     void set(size_t row, ulint val) {
         static_assert(col < num_cols, "Column out of bounds");
         assert(row < num_rows);
-        assert(val < POW2(BYTES_TO_BITS(byte_widths[col]))); // value must fit in the column
+        assert(val < pow2(bytes_to_bits(byte_widths[col]))); // value must fit in the column
 
         size_t byte_pos = get_row_start_byte(row) + byte_offsets[col];
 
@@ -149,13 +149,13 @@ private:
         for (size_t i = 0; i < num_cols; i++) {
             assert(widths[i] <= max_width);
             // Round up to the nearest byte
-            if (widths[i] % NUM_BITS(word_t) != 0) {
-                byte_widths[i] = (widths[i] / NUM_BITS(word_t)) + 1;
+            if (widths[i] % num_bits_type(word_t) != 0) {
+                byte_widths[i] = (widths[i] / num_bits_type(word_t)) + 1;
             } else {
-                byte_widths[i] = widths[i] / NUM_BITS(word_t);
+                byte_widths[i] = widths[i] / num_bits_type(word_t);
             }
 
-            masks_extract[i] = MASK(widths[i]);
+            masks_extract[i] = mask(widths[i]);
             masks_write[i] = ~(masks_extract[i]);
             
             byte_offsets[i] = byte_pos;

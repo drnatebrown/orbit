@@ -245,10 +245,10 @@ void bench_move_phi(const string &name,
 
     auto t0 = high_resolution_clock::now();
     auto permutation = permutation_impl<>::from_lengths_and_tau_inv(lengths, tau_inv);
-    move_phi move_phi(permutation);
+    move_phi<> move_phi(permutation);
     auto t1 = high_resolution_clock::now();
 
-    using position = typename move_phi::position;
+    using position = typename move_phi<>::position;
     vector<ulint> sa_recovered(sa_truth.size());
 
     position pos = move_phi.last();
@@ -285,17 +285,7 @@ void bench_move_phi_exp(const string &name,
     cout << "  " << name << endl;
 
     auto t0 = high_resolution_clock::now();
-    class MovePhiExp : public moveperm_impl<true, true, move_columns, move_structure, move_vector> {
-        using base = moveperm_impl<true, true, move_columns, move_structure, move_vector>;
-    public:
-        using base::base;
-        using base::operator=;
-        using position = typename base::position;
-
-        position phi(position pos) { return base::next(pos); }
-        position phi(position pos, ulint steps) { return base::next(pos, steps); }
-        ulint SA(position pos) { return pos.idx; }
-    };
+    using MovePhiExp = move_phi<true>;
 
     auto permutation = permutation_impl<>::from_lengths_and_tau_inv(lengths, tau_inv);
     MovePhiExp move_phi(permutation);
@@ -339,10 +329,10 @@ void bench_move_invphi(const string &name,
 
     auto t0 = high_resolution_clock::now();
     auto permutation = permutation_impl<>::from_lengths_and_tau_inv(lengths, tau_inv);
-    move_invphi move_invphi(permutation);
+    move_invphi<> move_invphi(permutation);
     auto t1 = high_resolution_clock::now();
 
-    using position = typename move_invphi::position;
+    using position = typename move_invphi<>::position;
     vector<ulint> sa_recovered(sa_truth.size());
 
     position pos = move_invphi.last();
@@ -378,17 +368,7 @@ void bench_move_invphi_exp(const string &name,
     cout << "  " << name << endl;
 
     auto t0 = high_resolution_clock::now();
-    class MoveInvPhiExp : public moveperm_impl<true, true, move_columns, move_structure, move_vector> {
-        using base = moveperm_impl<true, true, move_columns, move_structure, move_vector>;
-    public:
-        using base::base;
-        using base::operator=;
-        using position = typename base::position;
-
-        position invphi(position pos) { return base::next(pos); }
-        position invphi(position pos, ulint steps) { return base::next(pos, steps); }
-        ulint SA(position pos) { return pos.idx; }
-    };
+    using MoveInvPhiExp = move_invphi<true>;
 
     auto perm = permutation_impl<>::from_lengths_and_tau_inv(lengths, tau_inv);
     MoveInvPhiExp move_invphi(perm);

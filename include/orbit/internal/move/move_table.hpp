@@ -146,7 +146,7 @@ struct move_table : public move_table_interface<move_table<columns_t>, columns_t
 
     // Widths don't help, the struct is already defined
     static size_t bits_needed(size_t num_rows, std::array<uchar, num_cols> widths) {
-        return BYTES_TO_BITS(sizeof(row)) * num_rows;
+        return bytes_to_bits(sizeof(row)) * num_rows;
     }
 };
 

@@ -53,15 +53,15 @@ void test_packed_matrix_multi_column() {
     for (size_t i = 0; i < rows; ++i) {
         ulint v0 = static_cast<ulint>(i % 100);
         ulint v1 = static_cast<ulint>((rows - 1 - i) % 100);
-        v0 &= MASK(widths[0]);
-        v1 &= MASK(widths[1]);
+        v0 &= mask(widths[0]);
+        v1 &= mask(widths[1]);
         m.set<0>(i, v0);
         m.set<1>(i, v1);
     }
 
     for (size_t i = 0; i < rows; ++i) {
-        ulint expected0 = static_cast<ulint>(i % 100) & MASK(widths[0]);
-        ulint expected1 = static_cast<ulint>((rows - 1 - i) % 100) & MASK(widths[1]);
+        ulint expected0 = static_cast<ulint>(i % 100) & mask(widths[0]);
+        ulint expected1 = static_cast<ulint>((rows - 1 - i) % 100) & mask(widths[1]);
         assert(m.get<0>(i) == expected0);
         assert(m.get<1>(i) == expected1);
     }
@@ -180,18 +180,18 @@ void test_packed_vector_with_enum() {
     assert(vec.cols() == NumCols);
 
     for (size_t i = 0; i < rows; ++i) {
-        ulint a = static_cast<ulint>(i & MASK(widths[0]));
-        ulint b = static_cast<ulint>((i * 3) & MASK(widths[1]));
-        ulint c = static_cast<ulint>((i * 5) & MASK(widths[2]));
+        ulint a = static_cast<ulint>(i & mask(widths[0]));
+        ulint b = static_cast<ulint>((i * 3) & mask(widths[1]));
+        ulint c = static_cast<ulint>((i * 5) & mask(widths[2]));
         vec.set<Columns::A>(i, a);
         vec.set<Columns::B>(i, b);
         vec.set<Columns::C>(i, c);
     }
 
     for (size_t i = 0; i < rows; ++i) {
-        ulint expected_a = static_cast<ulint>(i & MASK(widths[0]));
-        ulint expected_b = static_cast<ulint>((i * 3) & MASK(widths[1]));
-        ulint expected_c = static_cast<ulint>((i * 5) & MASK(widths[2]));
+        ulint expected_a = static_cast<ulint>(i & mask(widths[0]));
+        ulint expected_b = static_cast<ulint>((i * 3) & mask(widths[1]));
+        ulint expected_c = static_cast<ulint>((i * 5) & mask(widths[2]));
         assert(vec.get<Columns::A>(i) == expected_a);
         assert(vec.get<Columns::B>(i) == expected_b);
         assert(vec.get<Columns::C>(i) == expected_c);
@@ -210,18 +210,18 @@ void test_packed_matrix_aligned_basic() {
 
     for (size_t i = 0; i < rows; ++i) {
         array<ulint, NumCols> vals{
-            static_cast<ulint>(i & MASK(widths[0])),
-            static_cast<ulint>((i * 2) & MASK(widths[1])),
-            static_cast<ulint>((i * 7) & MASK(widths[2]))
+            static_cast<ulint>(i & mask(widths[0])),
+            static_cast<ulint>((i * 2) & mask(widths[1])),
+            static_cast<ulint>((i * 7) & mask(widths[2]))
         };
         m.set_row(i, vals);
     }
 
     for (size_t i = 0; i < rows; ++i) {
         auto row_vals = m.get_row(i);
-        assert(row_vals[0] == static_cast<ulint>(i & MASK(widths[0])));
-        assert(row_vals[1] == static_cast<ulint>((i * 2) & MASK(widths[1])));
-        assert(row_vals[2] == static_cast<ulint>((i * 7) & MASK(widths[2])));
+        assert(row_vals[0] == static_cast<ulint>(i & mask(widths[0])));
+        assert(row_vals[1] == static_cast<ulint>((i * 2) & mask(widths[1])));
+        assert(row_vals[2] == static_cast<ulint>((i * 7) & mask(widths[2])));
     }
 }
 
@@ -350,15 +350,15 @@ void test_packed_vector_aligned_with_enum() {
     assert(vec.cols() == NumCols);
 
     for (size_t i = 0; i < rows; ++i) {
-        ulint x = static_cast<ulint>((i * 5) & MASK(widths[0]));
-        ulint y = static_cast<ulint>((i * 11) & MASK(widths[1]));
+        ulint x = static_cast<ulint>((i * 5) & mask(widths[0]));
+        ulint y = static_cast<ulint>((i * 11) & mask(widths[1]));
         vec.set<Columns::X>(i, x);
         vec.set<Columns::Y>(i, y);
     }
 
     for (size_t i = 0; i < rows; ++i) {
-        ulint expected_x = static_cast<ulint>((i * 5) & MASK(widths[0]));
-        ulint expected_y = static_cast<ulint>((i * 11) & MASK(widths[1]));
+        ulint expected_x = static_cast<ulint>((i * 5) & mask(widths[0]));
+        ulint expected_y = static_cast<ulint>((i * 11) & mask(widths[1]));
         assert(vec.get<Columns::X>(i) == expected_x);
         assert(vec.get<Columns::Y>(i) == expected_y);
     }

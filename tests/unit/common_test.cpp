@@ -76,82 +76,38 @@ void test_enum_helpers() {
     assert(sum == 60);
 }
 
-void test_bwt_to_rlbwt_basic() {
-    {
-        // Empty input -> empty output.
-        vector<uchar> bwt;
-        auto [heads, lengths] = bwt_to_rlbwt(bwt);
-        assert(heads.empty());
-        assert(lengths.empty());
-    }
-    {
-        // Single run.
-        vector<uchar> bwt = {'A', 'A', 'A'};
-        auto [heads, lengths] = bwt_to_rlbwt(bwt);
-        assert(heads.size() == 1);
-        assert(lengths.size() == 1);
-        assert(heads[0] == static_cast<uchar>('A'));
-        assert(lengths[0] == 3);
-    }
-    {
-        // Multiple runs.
-        vector<uchar> bwt = {'A', 'A', 'C', 'C', 'C', 'G', 'G'};
-        auto [heads, lengths] = bwt_to_rlbwt(bwt);
-
-        assert(heads.size() == 3);
-        assert(lengths.size() == 3);
-
-        assert(heads[0] == static_cast<uchar>('A'));
-        assert(lengths[0] == 2);
-
-        assert(heads[1] == static_cast<uchar>('C'));
-        assert(lengths[1] == 3);
-
-        assert(heads[2] == static_cast<uchar>('G'));
-        assert(lengths[2] == 2);
-
-        // Sum of run lengths equals original length.
-        ulint total = 0;
-        for (ulint v : lengths) {
-            total += v;
-        }
-        assert(total == bwt.size());
-    }
-}
-
 void test_macros_sanity() {
-    // BYTES_TO_BITS / BITS_TO_BYTES round-trip for multiples of a byte.
-    static_assert(BYTES_TO_BITS(1) == 8, "1 byte must be 8 bits");
-    static_assert(BYTES_TO_BITS(4) == 32, "4 bytes must be 32 bits");
-    static_assert(BITS_TO_BYTES(8) == 1, "8 bits must be 1 byte");
-    static_assert(BITS_TO_BYTES(32) == 4, "32 bits must be 4 bytes");
+    // bytes_to_bits / bits_to_bytes round-trip for multiples of a byte.
+    static_assert(bytes_to_bits(1) == 8, "1 byte must be 8 bits");
+    static_assert(bytes_to_bits(4) == 32, "4 bytes must be 32 bits");
+    static_assert(bits_to_bytes(8) == 1, "8 bits must be 1 byte");
+    static_assert(bits_to_bytes(32) == 4, "32 bits must be 4 bytes");
 
-    // NUM_BITS agrees with sizeof.
-    static_assert(NUM_BITS(ulint) == BYTES_TO_BITS(sizeof(ulint)),
-                  "NUM_BITS must be sizeof(type) * 8");
+    // num_bits_type agrees with sizeof.
+    static_assert(num_bits_type(ulint) == bytes_to_bits(sizeof(ulint)),
+                  "num_bits_type must be sizeof(type) * 8");
 
-    // CEIL_DIV basic behaviour.
-    assert(CEIL_DIV(0, 1) == 0);
-    assert(CEIL_DIV(1, 1) == 1);
-    assert(CEIL_DIV(5, 2) == 3);
-    assert(CEIL_DIV(6, 2) == 3);
-    assert(CEIL_DIV(7, 2) == 4);
+    // ceil_div basic behaviour.
+    assert(ceil_div(0, 1) == 0);
+    assert(ceil_div(1, 1) == 1);
+    assert(ceil_div(5, 2) == 3);
+    assert(ceil_div(6, 2) == 3);
+    assert(ceil_div(7, 2) == 4);
 
-    // POW2 / MAX_VAL / MASK basic checks.
-    static_assert(POW2(0) == 1ULL, "2^0 must be 1");
-    static_assert(POW2(3) == 8ULL, "2^3 must be 8");
+    // pow2 / max_val / mask basic checks.
+    static_assert(pow2(0) == 1ULL, "2^0 must be 1");
+    static_assert(pow2(3) == 8ULL, "2^3 must be 8");
 
-    static_assert(MAX_VAL(1) == 1ULL, "MAX_VAL(1) = 1");
-    static_assert(MAX_VAL(3) == 7ULL, "MAX_VAL(3) = 7");
+    static_assert(max_val(1) == 1ULL, "max_val(1) = 1");
+    static_assert(max_val(3) == 7ULL, "max_val(3) = 7");
 
-    static_assert(MASK(4) == 0xFULL, "MASK(4) must be 0b1111");
+    static_assert(mask(4) == 0xFULL, "mask(4) must be 0b1111");
 }
 
 int main() {
     test_bit_width_basic();
     test_define_run_cols_macro();
     test_enum_helpers();
-    test_bwt_to_rlbwt_basic();
     test_macros_sanity();
 
     std::cout << "orbit/common tests passed" << std::endl;

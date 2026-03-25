@@ -33,8 +33,9 @@ public:
 };
 
 // Always use absolute positions for inv_phi
-class move_invphi : public moveperm_impl<true, DEFAULT_EXPONENTIAL_SEARCH, move_columns, move_structure, move_vector> {
-    using base = moveperm_impl<true, DEFAULT_EXPONENTIAL_SEARCH, move_columns, move_structure, move_vector>;
+template<bool exponential_search = DEFAULT_EXPONENTIAL_SEARCH>
+class move_invphi : public moveperm_impl<true, exponential_search, move_columns, move_structure, move_vector> {
+    using base = moveperm_impl<true, exponential_search, move_columns, move_structure, move_vector>;
 public:
     using base::base;
     using base::operator=;
