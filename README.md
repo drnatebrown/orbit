@@ -29,7 +29,7 @@ std::vector<unsigned long int> images  = {1, 9, 3, 12, 4, 14, 0, 15, 6};
 
 These can be used to build a permutation object, which permits efficient navigation:
 ```cpp
-orbit:permutation perm(lengths, images);
+orbit::permutation perm(lengths, images);
 auto pos = perm.first();
 pos.next();
 ...
