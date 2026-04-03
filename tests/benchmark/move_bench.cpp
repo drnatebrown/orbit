@@ -3,7 +3,7 @@
     benchmarks. Leaving them here for now since they somewhat 
     verify performance. Better benchmarks should be written. */
 
-#include "move.hpp"
+#include "orbit/move_structure.hpp"
 
 #include <iostream>
 #include <cassert>
@@ -17,6 +17,8 @@
 
 using namespace std;
 using namespace std::chrono;
+
+using namespace orbit;
 
 // Deterministic RNG for reproducible benchmarks
 static std::mt19937 rng(42);
@@ -99,18 +101,18 @@ bool verify_permutation(const std::vector<ulint>& perm) {
 std::vector<ulint> test_n = {18388608};  
 std::vector<size_t> percentage_runs = {1, 2, 5, 10};
 std::optional<double> length_capping_factor = 4.0;
-SplitParams split_params = NO_SPLITTING; 
+split_params sp = NO_SPLITTING; 
 
 // Helper function to get readable type name
 template<typename MoveStructType>
 std::string get_type_name() {
-    if constexpr (std::is_same_v<MoveStructType, MoveStructureTbl>) {
+    if constexpr (std::is_same_v<MoveStructType, move_structure_tbl>) {
         return "MoveStructureTbl";
-    } else if constexpr (std::is_same_v<MoveStructType, MoveStructureVec>) {
+    } else if constexpr (std::is_same_v<MoveStructType, move_structure_vec>) {
         return "MoveStructureVec";
-    } else if constexpr (std::is_same_v<MoveStructType, MoveStructureTblIdx>) {
+    } else if constexpr (std::is_same_v<MoveStructType, move_structure_tbl_idx>) {
         return "MoveStructureTblIdx";
-    } else if constexpr (std::is_same_v<MoveStructType, MoveStructureVecIdx>) {
+    } else if constexpr (std::is_same_v<MoveStructType, move_structure_vec_idx>) {
         return "MoveStructureVecIdx";
     } else {
         return "Unknown";
@@ -120,7 +122,7 @@ std::string get_type_name() {
 // Benchmark function template (no splitting: reference data matches unsplit layout)
 template<typename MoveStructType>
 void bench_move_structure(const std::vector<ulint>& lengths, 
-                          const std::vector<ulint>& interval_permutation,
+                          const std::vector<ulint>& images,
                           const std::vector<ulint>& starts,
                           const std::vector<ulint>& pointers,
                           const std::vector<ulint>& offsets,
@@ -128,7 +130,7 @@ void bench_move_structure(const std::vector<ulint>& lengths,
                           size_t n) {
     // Creation
     auto t0 = high_resolution_clock::now();
-    auto move_structure = MoveStructType(lengths, interval_permutation, n, split_params);
+    auto move_structure = MoveStructType(lengths, images, sp);
     auto t1 = high_resolution_clock::now();
 
     // Getter phase
@@ -136,8 +138,8 @@ void bench_move_structure(const std::vector<ulint>& lengths,
         assert(move_structure.get_pointer(i) == pointers[i]);
         assert(move_structure.get_offset(i) == offsets[i]);
         
-        if constexpr (std::is_same_v<MoveStructType, MoveStructureTblIdx> || 
-                      std::is_same_v<MoveStructType, MoveStructureVecIdx>) {
+        if constexpr (std::is_same_v<MoveStructType, move_structure_tbl_idx> || 
+                      std::is_same_v<MoveStructType, move_structure_vec_idx>) {
             assert(move_structure.get_start(i) == starts[i]);
         }
         else {
@@ -147,9 +149,9 @@ void bench_move_structure(const std::vector<ulint>& lengths,
     auto t2 = high_resolution_clock::now();
 
     // Benchmark move() operations
-    typename MoveStructType::Position pos;
-    if constexpr (std::is_same_v<MoveStructType, MoveStructureTblIdx> || 
-                  std::is_same_v<MoveStructType, MoveStructureVecIdx>) {
+    typename MoveStructType::position pos;
+    if constexpr (std::is_same_v<MoveStructType, move_structure_tbl_idx> || 
+                  std::is_same_v<MoveStructType, move_structure_vec_idx>) {
         pos = {0, 0, 0};  // idx types have 3 fields
     } else {
         pos = {0, 0};     // normal types have 2 fields
@@ -162,9 +164,9 @@ void bench_move_structure(const std::vector<ulint>& lengths,
     auto t4 = high_resolution_clock::now();
 
     // Benchmark move_exponential() operations (no splitting)
-    typename MoveStructType::Position pos_exp;
-    if constexpr (std::is_same_v<MoveStructType, MoveStructureTblIdx> || 
-                  std::is_same_v<MoveStructType, MoveStructureVecIdx>) {
+    typename MoveStructType::position pos_exp;
+    if constexpr (std::is_same_v<MoveStructType, move_structure_tbl_idx> || 
+                  std::is_same_v<MoveStructType, move_structure_vec_idx>) {
         pos_exp = {0, 0, 0};
     } else {
         pos_exp = {0, 0};
@@ -196,22 +198,22 @@ void bench_move_structure(const std::vector<ulint>& lengths,
 // Splitting-aware benchmark: measures both move() and move_exponential() under splitting.
 template<typename MoveStructType>
 void bench_move_structure_with_splitting(const std::vector<ulint>& lengths, 
-                                         const std::vector<ulint>& interval_permutation,
+                                         const std::vector<ulint>& images,
                                          const std::vector<ulint>& test_perm,
                                          size_t n) {
     auto t0 = high_resolution_clock::now();
 
-    SplitParams split_params_split(length_capping_factor, std::nullopt);
-    auto move_structure = MoveStructType(lengths, interval_permutation, n, split_params_split);
+    split_params split_params_split(length_capping_factor, std::nullopt);
+    auto move_structure = MoveStructType(lengths, images, split_params_split);
 
     auto t1 = high_resolution_clock::now();
 
-    assert(move_structure.runs() >= lengths.size() && "splitting can only add runs");
+    assert(move_structure.intervals() >= lengths.size() && "splitting can only add runs");
 
     // Benchmark move() in splitting mode
-    typename MoveStructType::Position pos;
-    if constexpr (std::is_same_v<MoveStructType, MoveStructureTblIdx> || 
-                  std::is_same_v<MoveStructType, MoveStructureVecIdx>) {
+    typename MoveStructType::position pos;
+    if constexpr (std::is_same_v<MoveStructType, move_structure_tbl_idx> || 
+                  std::is_same_v<MoveStructType, move_structure_vec_idx>) {
         pos = {0, 0, 0};
     } else {
         pos = {0, 0};
@@ -224,9 +226,9 @@ void bench_move_structure_with_splitting(const std::vector<ulint>& lengths,
     auto t3 = high_resolution_clock::now();
 
     // Benchmark move_exponential() in splitting mode
-    typename MoveStructType::Position pos_exp;
-    if constexpr (std::is_same_v<MoveStructType, MoveStructureTblIdx> || 
-                  std::is_same_v<MoveStructType, MoveStructureVecIdx>) {
+    typename MoveStructType::position pos_exp;
+    if constexpr (std::is_same_v<MoveStructType, move_structure_tbl_idx> || 
+                  std::is_same_v<MoveStructType, move_structure_vec_idx>) {
         pos_exp = {0, 0, 0};
     } else {
         pos_exp = {0, 0};
@@ -264,7 +266,7 @@ void run_benchmarks() {
                 continue;
             }
                 
-            auto [lengths, interval_permutation] = get_permutation_intervals(test_perm);
+            auto [lengths, images] = get_permutation_intervals(test_perm);
             std::vector<ulint> starts(lengths.size());
             size_t start = 0;
             for (size_t i = 0; i < lengths.size(); ++i) {
@@ -275,27 +277,27 @@ void run_benchmarks() {
             vector<ulint> pointers(lengths.size());
             vector<ulint> offsets(lengths.size());
             for (size_t i = 0; i < lengths.size(); ++i) {
-                assert(interval_permutation[i] == test_perm[starts[i]]);
-                auto it = std::upper_bound(starts.begin(), starts.end(), interval_permutation[i]);
+                assert(images[i] == test_perm[starts[i]]);
+                auto it = std::upper_bound(starts.begin(), starts.end(), images[i]);
                 if (it != starts.begin()) {
                     size_t index = std::distance(starts.begin(), it) - 1;
                     size_t element = starts[index];
                     pointers[i] = index;
-                    offsets[i] = interval_permutation[i] - element;
+                    offsets[i] = images[i] - element;
                 }
             }
 
             std::cout << "Testing n=" << n << ", r=" << r << " (n/r=" << n/r << "):" << std::endl;
             
             // Benchmark all table types (no splitting + splitting)
-            bench_move_structure<MoveStructureTbl>(lengths, interval_permutation, starts, pointers, offsets, test_perm, n);
-            bench_move_structure_with_splitting<MoveStructureTbl>(lengths, interval_permutation, test_perm, n);
-            bench_move_structure<MoveStructureVec>(lengths, interval_permutation, starts, pointers, offsets, test_perm, n);
-            bench_move_structure_with_splitting<MoveStructureVec>(lengths, interval_permutation, test_perm, n);
-            bench_move_structure<MoveStructureTblIdx>(lengths, interval_permutation, starts, pointers, offsets, test_perm, n);
-            bench_move_structure_with_splitting<MoveStructureTblIdx>(lengths, interval_permutation, test_perm, n);
-            bench_move_structure<MoveStructureVecIdx>(lengths, interval_permutation, starts, pointers, offsets, test_perm, n);
-            bench_move_structure_with_splitting<MoveStructureVecIdx>(lengths, interval_permutation, test_perm, n);
+            bench_move_structure<move_structure_tbl>(lengths, images, starts, pointers, offsets, test_perm, n);
+            bench_move_structure_with_splitting<move_structure_tbl>(lengths, images, test_perm, n);
+            bench_move_structure<move_structure_vec>(lengths, images, starts, pointers, offsets, test_perm, n);
+            bench_move_structure_with_splitting<move_structure_vec>(lengths, images, test_perm, n);
+            bench_move_structure<move_structure_tbl_idx>(lengths, images, starts, pointers, offsets, test_perm, n);
+            bench_move_structure_with_splitting<move_structure_tbl_idx>(lengths, images, test_perm, n);
+            bench_move_structure<move_structure_vec_idx>(lengths, images, starts, pointers, offsets, test_perm, n);
+            bench_move_structure_with_splitting<move_structure_vec_idx>(lengths, images, test_perm, n);
 
             std::cout << std::endl;
         }

@@ -1,7 +1,7 @@
-// Unit tests for Alphabet and Nucleotide helper.
+// Unit tests for alphabet and nucleotide helper.
 // These are simple assert-based tests, no external framework.
 
-#include "internal/ds/alphabet.hpp"
+#include "orbit/internal/ds/alphabet.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -12,6 +12,8 @@
 using std::size_t;
 using std::vector;
 
+using namespace orbit;
+
 void test_alphabet_basic_mapping() {
     vector<ulint> char_counts(MAX_ALPHABET_SIZE, 0);
 
@@ -20,7 +22,7 @@ void test_alphabet_basic_mapping() {
     char_counts['C'] = 5;
     char_counts['Z'] = 1;
 
-    Alphabet alphabet(char_counts);
+    alphabet alphabet(char_counts);
 
     assert(alphabet.size() == 3);
 
@@ -57,17 +59,17 @@ void test_alphabet_serialize_roundtrip() {
     char_counts['B'] = 2;
     char_counts['C'] = 3;
 
-    Alphabet alphabet(char_counts);
+    alphabet alpha(char_counts);
 
     std::stringstream ss;
-    size_t bytes_written = alphabet.serialize(ss);
+    size_t bytes_written = alpha.serialize(ss);
     assert(bytes_written > 0);
 
-    Alphabet loaded;
+    alphabet loaded;
     loaded.load(ss);
 
     // Check that size and mappings for the active characters are preserved.
-    assert(loaded.size() == alphabet.size());
+    assert(loaded.size() == alpha.size());
 
     uchar a_code = loaded.map_char(static_cast<uchar>('A'));
     uchar b_code = loaded.map_char(static_cast<uchar>('B'));
@@ -83,7 +85,7 @@ void test_alphabet_full_alphabet_throws() {
 
     bool threw = false;
     try {
-        Alphabet alphabet(char_counts);
+        alphabet alphabet(char_counts);
     } catch (const std::runtime_error &) {
         threw = true;
     }
@@ -102,27 +104,27 @@ void test_nucleotide_basic_mapping() {
     char_counts[static_cast<uchar>('T')] = 1;
     char_counts[static_cast<uchar>('N')] = 1;
 
-    Nucleotide nuc(char_counts);
+    nucleotide nuc(char_counts);
     (void)nuc; // suppress unused warning in release builds
 
-    assert(Nucleotide::size() == Nucleotide::SIGMA);
+    assert(nucleotide::size() == nucleotide::SIGMA);
 
     // Terminator and separator map to the first two codes.
-    assert(Nucleotide::map_char(static_cast<uchar>(TERMINATOR)) == 0);
-    assert(Nucleotide::map_char(static_cast<uchar>(SEPARATOR)) == 1);
+    assert(nucleotide::map_char(static_cast<uchar>(TERMINATOR)) == 0);
+    assert(nucleotide::map_char(static_cast<uchar>(SEPARATOR)) == 1);
 
     // Upper- and lower-case DNA symbols should map consistently.
-    uchar a_code = Nucleotide::map_char(static_cast<uchar>('A'));
-    uchar c_code = Nucleotide::map_char(static_cast<uchar>('C'));
-    uchar g_code = Nucleotide::map_char(static_cast<uchar>('G'));
-    uchar t_code = Nucleotide::map_char(static_cast<uchar>('T'));
-    uchar n_code = Nucleotide::map_char(static_cast<uchar>('N'));
+    uchar a_code = nucleotide::map_char(static_cast<uchar>('A'));
+    uchar c_code = nucleotide::map_char(static_cast<uchar>('C'));
+    uchar g_code = nucleotide::map_char(static_cast<uchar>('G'));
+    uchar t_code = nucleotide::map_char(static_cast<uchar>('T'));
+    uchar n_code = nucleotide::map_char(static_cast<uchar>('N'));
 
-    uchar a_lower_code = Nucleotide::map_char(static_cast<uchar>('a'));
-    uchar c_lower_code = Nucleotide::map_char(static_cast<uchar>('c'));
-    uchar g_lower_code = Nucleotide::map_char(static_cast<uchar>('g'));
-    uchar t_lower_code = Nucleotide::map_char(static_cast<uchar>('t'));
-    uchar n_lower_code = Nucleotide::map_char(static_cast<uchar>('n'));
+    uchar a_lower_code = nucleotide::map_char(static_cast<uchar>('a'));
+    uchar c_lower_code = nucleotide::map_char(static_cast<uchar>('c'));
+    uchar g_lower_code = nucleotide::map_char(static_cast<uchar>('g'));
+    uchar t_lower_code = nucleotide::map_char(static_cast<uchar>('t'));
+    uchar n_lower_code = nucleotide::map_char(static_cast<uchar>('n'));
 
     assert(a_code == a_lower_code);
     assert(c_code == c_lower_code);
@@ -131,11 +133,11 @@ void test_nucleotide_basic_mapping() {
     assert(n_code == n_lower_code);
 
     // Reverse mapping yields canonical (upper-case) characters.
-    assert(Nucleotide::unmap_char(a_code) == static_cast<uchar>('A'));
-    assert(Nucleotide::unmap_char(c_code) == static_cast<uchar>('C'));
-    assert(Nucleotide::unmap_char(g_code) == static_cast<uchar>('G'));
-    assert(Nucleotide::unmap_char(t_code) == static_cast<uchar>('T'));
-    assert(Nucleotide::unmap_char(n_code) == static_cast<uchar>('N'));
+    assert(nucleotide::unmap_char(a_code) == static_cast<uchar>('A'));
+    assert(nucleotide::unmap_char(c_code) == static_cast<uchar>('C'));
+    assert(nucleotide::unmap_char(g_code) == static_cast<uchar>('G'));
+    assert(nucleotide::unmap_char(t_code) == static_cast<uchar>('T'));
+    assert(nucleotide::unmap_char(n_code) == static_cast<uchar>('N'));
 }
 
 void test_nucleotide_sequence_roundtrip() {
@@ -148,7 +150,7 @@ void test_nucleotide_sequence_roundtrip() {
     char_counts[static_cast<uchar>('T')] = 1;
     char_counts[static_cast<uchar>('N')] = 1;
 
-    Nucleotide nuc(char_counts);
+    nucleotide nuc(char_counts);
     (void)nuc;
 
     vector<uchar> seq{
@@ -159,8 +161,8 @@ void test_nucleotide_sequence_roundtrip() {
         static_cast<uchar>('N')
     };
 
-    auto mapped = Nucleotide::map_sequence(seq);
-    auto unmapped = Nucleotide::unmap_sequence(mapped);
+    auto mapped = nucleotide::map_sequence(seq);
+    auto unmapped = nucleotide::unmap_sequence(mapped);
 
     // Lowercase inputs should be normalized to uppercase in the unmapped sequence.
     vector<uchar> expected{

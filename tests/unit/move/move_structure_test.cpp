@@ -1,7 +1,7 @@
 // Unit tests for MoveStructure build-time invariants.
 // These are simple assert-based tests, no external framework.
 
-#include "internal/move/move_structure.hpp"
+#include "orbit/internal/move/move_structure_impl.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -10,6 +10,8 @@
 
 using std::size_t;
 using std::vector;
+
+using namespace orbit;
 
 static vector<ulint> compute_starts(const vector<ulint>& lengths) {
     vector<ulint> starts(lengths.size() + 1, 0);
@@ -30,16 +32,16 @@ static size_t interval_of(const vector<ulint>& starts, ulint idx) {
 
 template <typename ColumnsT>
 static void assert_pointer_offset_correct(
-    const MoveStructure<ColumnsT>& ms,
+    const move_structure<ColumnsT>& ms,
     const vector<ulint>& lengths,
-    const vector<ulint>& interval_permutation
+    const vector<ulint>& image
 ) {
     const auto starts = compute_starts(lengths);
-    assert(starts.back() == ms.size());
+    assert(starts.back() == ms.domain());
     assert(ms.runs() == lengths.size());
 
     for (size_t j = 0; j < lengths.size(); ++j) {
-        const ulint mapped_start = interval_permutation[j];
+        const ulint mapped_start = image[j];
         const size_t k = interval_of(starts, mapped_start);
         const ulint expected_offset = mapped_start - starts[k];
 
@@ -55,8 +57,8 @@ static void test_move_structure_relative_build_invariants() {
     const vector<ulint> perm = {4, 0, 9, 2, 7};
     const ulint domain = 10;
 
-    MoveStructure<MoveCols> ms(lengths, perm, domain, NO_SPLITTING);
-    assert(ms.size() == domain);
+    move_structure<move_columns> ms(lengths, perm, NO_SPLITTING);
+    assert(ms.domain() == domain);
     assert(ms.runs() == lengths.size());
 
     for (size_t i = 0; i < lengths.size(); ++i) {
@@ -72,8 +74,8 @@ static void test_move_structure_absolute_build_invariants() {
     const vector<ulint> perm = {4, 0, 9, 2, 7};
     const ulint domain = 10;
 
-    MoveStructure<MoveColsIdx> ms(lengths, perm, domain, NO_SPLITTING);
-    assert(ms.size() == domain);
+    move_structure<move_columns_idx> ms(lengths, perm, NO_SPLITTING);
+    assert(ms.domain() == domain);
     assert(ms.runs() == lengths.size());
 
     const auto starts = compute_starts(lengths);
@@ -91,16 +93,16 @@ static void test_move_structure_serialize_roundtrip() {
     const vector<ulint> perm = {4, 0, 9, 2, 7};
     const ulint domain = 10;
 
-    MoveStructure<MoveColsIdx> ms(lengths, perm, domain, NO_SPLITTING);
+    move_structure<move_columns_idx> ms(lengths, perm, NO_SPLITTING);
 
     std::stringstream ss;
     const size_t bytes = ms.serialize(ss);
     assert(bytes > 0);
 
-    MoveStructure<MoveColsIdx> loaded;
+    move_structure<move_columns_idx> loaded;
     loaded.load(ss);
 
-    assert(loaded.size() == ms.size());
+    assert(loaded.domain() == ms.domain());
     assert(loaded.runs() == ms.runs());
 
     for (size_t i = 0; i < lengths.size(); ++i) {
@@ -117,28 +119,28 @@ static void test_move_structure_widths_relative_and_absolute_with_and_without_sp
     const ulint domain = 10;
 
     // Relative, no splitting.
-    MoveStructure<MoveCols> ms_rel(lengths, perm, domain, NO_SPLITTING);
+    move_structure<move_columns> ms_rel(lengths, perm, NO_SPLITTING);
     auto widths_rel = ms_rel.get_widths();
 
     // PRIMARY and OFFSET widths should match for relative representation.
-    uchar w_primary_rel = widths_rel[static_cast<size_t>(MoveColsTraits<MoveCols>::PRIMARY)];
-    uchar w_pointer_rel = widths_rel[static_cast<size_t>(MoveColsTraits<MoveCols>::POINTER)];
-    uchar w_offset_rel  = widths_rel[static_cast<size_t>(MoveColsTraits<MoveCols>::OFFSET)];
+    uchar w_primary_rel = widths_rel[static_cast<size_t>(move_cols_traits<move_columns>::PRIMARY)];
+    uchar w_pointer_rel = widths_rel[static_cast<size_t>(move_cols_traits<move_columns>::POINTER)];
+    uchar w_offset_rel  = widths_rel[static_cast<size_t>(move_cols_traits<move_columns>::OFFSET)];
     assert(w_primary_rel == w_offset_rel);
     // Pointer width must be enough to index all runs.
     assert(w_pointer_rel >= bit_width(ms_rel.runs()));
 
     // Relative, with length-capping splitting.
-    SplitParams split = ONLY_LENGTH_CAPPING;
-    MoveStructure<MoveCols> ms_rel_split(lengths, perm, domain, split);
+    split_params split = ONLY_LENGTH_CAPPING;
+    move_structure<move_columns> ms_rel_split(lengths, perm, split);
     auto widths_rel_split = ms_rel_split.get_widths();
 
     uchar w_primary_rel_split =
-        widths_rel_split[static_cast<size_t>(MoveColsTraits<MoveCols>::PRIMARY)];
+        widths_rel_split[static_cast<size_t>(move_cols_traits<move_columns>::PRIMARY)];
     uchar w_pointer_rel_split =
-        widths_rel_split[static_cast<size_t>(MoveColsTraits<MoveCols>::POINTER)];
+        widths_rel_split[static_cast<size_t>(move_cols_traits<move_columns>::POINTER)];
     uchar w_offset_rel_split =
-        widths_rel_split[static_cast<size_t>(MoveColsTraits<MoveCols>::OFFSET)];
+        widths_rel_split[static_cast<size_t>(move_cols_traits<move_columns>::OFFSET)];
 
     // Still must have PRIMARY == OFFSET after splitting.
     assert(w_primary_rel_split == w_offset_rel_split);
@@ -146,15 +148,15 @@ static void test_move_structure_widths_relative_and_absolute_with_and_without_sp
     assert(w_pointer_rel_split >= bit_width(ms_rel_split.runs()));
 
     // Absolute, no splitting.
-    MoveStructure<MoveColsIdx> ms_abs(lengths, perm, domain, NO_SPLITTING);
+    move_structure<move_columns_idx> ms_abs(lengths, perm, NO_SPLITTING);
     auto widths_abs = ms_abs.get_widths();
 
     uchar w_primary_abs =
-        widths_abs[static_cast<size_t>(MoveColsTraits<MoveColsIdx>::PRIMARY)];
+        widths_abs[static_cast<size_t>(move_cols_traits<move_columns_idx>::PRIMARY)];
     uchar w_pointer_abs =
-        widths_abs[static_cast<size_t>(MoveColsTraits<MoveColsIdx>::POINTER)];
+        widths_abs[static_cast<size_t>(move_cols_traits<move_columns_idx>::POINTER)];
     uchar w_offset_abs =
-        widths_abs[static_cast<size_t>(MoveColsTraits<MoveColsIdx>::OFFSET)];
+        widths_abs[static_cast<size_t>(move_cols_traits<move_columns_idx>::OFFSET)];
 
     // PRIMARY width should be enough for domain indices.
     assert(w_primary_abs >= bit_width(domain));

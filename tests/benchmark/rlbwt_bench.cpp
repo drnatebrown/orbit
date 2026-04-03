@@ -2,14 +2,14 @@
  *
  * Loads precomputed BWT + SA (4-byte little-endian) and runs:
  * - LF / FL text reconstruction (standard + exponential, split + unsplit)
- * - Phi / InvPhi suffix array recovery (standard + exponential, split + unsplit)
+ * - phi / phi_inv suffix array recovery (standard + exponential, split + unsplit)
  *
- * Datasets (run from the `runperm/` directory):
- * - `tests/data/dna.{txt,bwt,sa}` using `Nucleotide`
- * - `tests/data/hamlet.{txt,bwt,sa}` using generic `Alphabet`
+ * Datasets (run from the `orbit/` directory):
+ * - `tests/data/dna.{txt,bwt,sa}` using `nucleotide`
+ * - `tests/data/hamlet.{txt,bwt,sa}` using generic `alphabet`
  */
 
-#include "rlbwt.hpp"
+#include "orbit/rlbwt.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -24,6 +24,9 @@
 
 using namespace std;
 using namespace std::chrono;
+
+using namespace orbit;
+using namespace orbit::rlbwt;
 
 // === IO utilities ===
 
@@ -140,16 +143,16 @@ void bench_move_lf(const string &name,
                    const vector<uchar> &bwt_heads,
                    const vector<ulint> &bwt_run_lengths,
                    const string &text,
-                   const SplitParams &split_params) {
+                   const split_params &split_params) {
     cout << "  " << name << " (LF)" << endl;
 
     auto t0 = high_resolution_clock::now();
     MoveLFType move_lf(bwt_heads, bwt_run_lengths, split_params);
     auto t1 = high_resolution_clock::now();
 
-    using Position = typename MoveLFType::Position;
+    using position = typename MoveLFType::position;
     string recovered_text(text.size(), '\0');
-    Position pos = move_lf.first();
+    position pos = move_lf.first();
     for (size_t i = 1; i < move_lf.domain(); ++i) {
         recovered_text[text.size() - i] = static_cast<char>(move_lf.get_character(pos));
         pos = move_lf.LF(pos);
@@ -173,16 +176,16 @@ void bench_move_fl(const string &name,
                    const vector<uchar> &bwt_heads,
                    const vector<ulint> &bwt_run_lengths,
                    const string &text,
-                   const SplitParams &split_params) {
+                   const split_params &split_params) {
     cout << "  " << name << " (FL)" << endl;
 
     auto t0 = high_resolution_clock::now();
     MoveFLType move_fl(bwt_heads, bwt_run_lengths, split_params);
     auto t1 = high_resolution_clock::now();
 
-    using Position = typename MoveFLType::Position;
+    using position = typename MoveFLType::position;
     string recovered_text = "";
-    Position pos = move_fl.first();
+    position pos = move_fl.first();
     pos = move_fl.FL(pos);
     for (size_t i = 1; i < move_fl.domain(); ++i) {
         recovered_text += static_cast<char>(move_fl.get_character(pos));
@@ -210,8 +213,8 @@ void run_lf_fl_benchmarks(const vector<uchar> &bwt_heads,
     cout << "Text length: " << text.size() << endl;
     cout << "RLBWT runs:  " << bwt_heads.size() << endl;
 
-    SplitParams no_splitting = NO_SPLITTING;
-    SplitParams splitting(8.0, std::nullopt); // length_capping_factor = 8.0
+    split_params no_splitting = NO_SPLITTING;
+    split_params splitting(8.0, std::nullopt); // length_capping_factor = 8.0
 
     // LF (standard + exponential)
     bench_move_lf<MoveLFStd>("MoveLF (no splitting)", bwt_heads, bwt_run_lengths, text, no_splitting);
@@ -228,29 +231,31 @@ void run_lf_fl_benchmarks(const vector<uchar> &bwt_heads,
     cout << endl;
 }
 
-// === Phi / InvPhi suffix array benchmarks (move-only, mirroring tests/integration/rlbwt_test.cpp) ===
+// === phi / phi_inv suffix array benchmarks (move-only, mirroring tests/integration/rlbwt_test.cpp) ===
 
-// Standard Phi (no exponential search)
+// Standard phi (no exponential search)
+template<class Container1, class Container2>
 void bench_move_phi(const string &name,
-                    const vector<ulint> &lengths,
-                    const vector<ulint> &interval_permutation,
+                    const Container1 &lengths,
+                    const Container2 &img_rank_inv,
                     ulint domain,
                     const vector<ulint> &sa_truth,
-                    const SplitParams &split_params) {
+                    const split_params &split_params) {
     cout << "  " << name << endl;
 
     auto t0 = high_resolution_clock::now();
-    MovePhi move_phi(lengths, interval_permutation, domain, split_params);
+    auto permutation = interval_encoding_impl<>::from_lengths_and_img_rank_inv(lengths, img_rank_inv);
+    move_phi move_phi(permutation);
     auto t1 = high_resolution_clock::now();
 
-    using Position = typename MovePhi::Position;
+    using position = typename move_phi::position;
     vector<ulint> sa_recovered(sa_truth.size());
 
-    Position pos = move_phi.last();
-    pos = move_phi.Phi(pos);
+    position pos = move_phi.last();
+    pos = move_phi.phi(pos);
     for (size_t i = 0; i < sa_recovered.size(); ++i) {
         sa_recovered[sa_recovered.size() - i - 1] = move_phi.SA(pos);
-        pos = move_phi.Phi(pos);
+        pos = move_phi.phi(pos);
     }
 
     for (size_t i = 0; i < sa_recovered.size(); ++i) {
@@ -269,39 +274,31 @@ void bench_move_phi(const string &name,
     cout << "    Size:           " << move_phi.serialize(ss) << " bytes" << endl;
 }
 
-// Phi with exponential search (absolute positions + ExponentialSearch = true)
+// phi with exponential search (absolute positions + ExponentialSearch = true)
+template<class Container1, class Container2>
 void bench_move_phi_exp(const string &name,
-                        const vector<ulint> &lengths,
-                        const vector<ulint> &interval_permutation,
+                        const Container1 &lengths,
+                        const Container2 &img_rank_inv,
                         ulint domain,
                         const vector<ulint> &sa_truth,
-                        const SplitParams &split_params) {
+                        const split_params &split_params) {
     cout << "  " << name << endl;
 
     auto t0 = high_resolution_clock::now();
-    class MovePhiExp : public MovePermImpl<true, true, MoveCols, MoveStructure, MoveVector> {
-        using Base = MovePermImpl<true, true, MoveCols, MoveStructure, MoveVector>;
-    public:
-        using Base::Base;
-        using Base::operator=;
-        using Position = typename Base::Position;
+    using MovePhiExp = phi_move_impl<true>;
 
-        Position Phi(Position pos) { return Base::next(pos); }
-        Position Phi(Position pos, ulint steps) { return Base::next(pos, steps); }
-        ulint SA(Position pos) { return pos.idx; }
-    };
-
-    MovePhiExp move_phi(lengths, interval_permutation, domain, split_params);
+    auto permutation = interval_encoding_impl<>::from_lengths_and_img_rank_inv(lengths, img_rank_inv);
+    MovePhiExp move_phi(permutation);
     auto t1 = high_resolution_clock::now();
 
-    using Position = typename MovePhiExp::Position;
+    using position = typename MovePhiExp::position;
     vector<ulint> sa_recovered(sa_truth.size());
 
-    Position pos = move_phi.last();
-    pos = move_phi.Phi(pos);
+    position pos = move_phi.last();
+    pos = move_phi.phi(pos);
     for (size_t i = 0; i < sa_recovered.size(); ++i) {
         sa_recovered[sa_recovered.size() - i - 1] = move_phi.SA(pos);
-        pos = move_phi.Phi(pos);
+        pos = move_phi.phi(pos);
     }
 
     for (size_t i = 0; i < sa_recovered.size(); ++i) {
@@ -320,26 +317,28 @@ void bench_move_phi_exp(const string &name,
     cout << "    Size:           " << move_phi.serialize(ss) << " bytes" << endl;
 }
 
-// Standard InvPhi (no exponential search)
-void bench_move_invphi(const string &name,
-                       const vector<ulint> &lengths,
-                       const vector<ulint> &interval_permutation,
+// Standard phi_inv (no exponential search)
+template<class Container1, class Container2>
+void bench_move_phi_inv(const string &name,
+                       const Container1 &lengths,
+                       const Container2 &img_rank_inv,
                        ulint domain,
                        const vector<ulint> &sa_truth,
-                       const SplitParams &split_params) {
+                       const split_params &split_params) {
     cout << "  " << name << endl;
 
     auto t0 = high_resolution_clock::now();
-    MoveInvPhi move_invphi(lengths, interval_permutation, domain, split_params);
+    auto permutation = interval_encoding_impl<>::from_lengths_and_img_rank_inv(lengths, img_rank_inv);
+    move_phi_inv move_phi_inv(permutation);
     auto t1 = high_resolution_clock::now();
 
-    using Position = typename MoveInvPhi::Position;
+    using position = typename move_phi_inv::position;
     vector<ulint> sa_recovered(sa_truth.size());
 
-    Position pos = move_invphi.last();
+    position pos = move_phi_inv.last();
     for (size_t i = 0; i < sa_recovered.size(); ++i) {
-        sa_recovered[i] = move_invphi.SA(pos);
-        pos = move_invphi.InvPhi(pos);
+        sa_recovered[i] = move_phi_inv.SA(pos);
+        pos = move_phi_inv.phi_inv(pos);
     }
 
     for (size_t i = 0; i < sa_recovered.size(); ++i) {
@@ -355,41 +354,33 @@ void bench_move_invphi(const string &name,
     cout << "    SA recovery:    " << sa_duration.count() << "us" << endl;
     cout << "    Total:          " << total_duration.count() << "us" << endl;
     stringstream ss;
-    cout << "    Size:           " << move_invphi.serialize(ss) << " bytes" << endl;
+    cout << "    Size:           " << move_phi_inv.serialize(ss) << " bytes" << endl;
 }
 
-// InvPhi with exponential search (absolute positions + ExponentialSearch = true)
-void bench_move_invphi_exp(const string &name,
-                           const vector<ulint> &lengths,
-                           const vector<ulint> &interval_permutation,
+// phi_inv with exponential search (absolute positions + ExponentialSearch = true)
+template<class Container1, class Container2>
+void bench_move_phi_inv_exp(const string &name,
+                           const Container1 &lengths,
+                           const Container2 &img_rank_inv,
                            ulint domain,
                            const vector<ulint> &sa_truth,
-                           const SplitParams &split_params) {
+                           const split_params &split_params) {
     cout << "  " << name << endl;
 
     auto t0 = high_resolution_clock::now();
-    class MoveInvPhiExp : public MovePermImpl<true, true, MoveCols, MoveStructure, MoveVector> {
-        using Base = MovePermImpl<true, true, MoveCols, MoveStructure, MoveVector>;
-    public:
-        using Base::Base;
-        using Base::operator=;
-        using Position = typename Base::Position;
+    using Movephi_invExp = phi_inv_move_impl<true>;
 
-        Position InvPhi(Position pos) { return Base::next(pos); }
-        Position InvPhi(Position pos, ulint steps) { return Base::next(pos, steps); }
-        ulint SA(Position pos) { return pos.idx; }
-    };
-
-    MoveInvPhiExp move_invphi(lengths, interval_permutation, domain, split_params);
+    auto perm = interval_encoding_impl<>::from_lengths_and_img_rank_inv(lengths, img_rank_inv);
+    Movephi_invExp move_phi_inv(perm);
     auto t1 = high_resolution_clock::now();
 
-    using Position = typename MoveInvPhiExp::Position;
+    using position = typename Movephi_invExp::position;
     vector<ulint> sa_recovered(sa_truth.size());
 
-    Position pos = move_invphi.last();
+    position pos = move_phi_inv.last();
     for (size_t i = 0; i < sa_recovered.size(); ++i) {
-        sa_recovered[i] = move_invphi.SA(pos);
-        pos = move_invphi.InvPhi(pos);
+        sa_recovered[i] = move_phi_inv.SA(pos);
+        pos = move_phi_inv.phi_inv(pos);
     }
 
     for (size_t i = 0; i < sa_recovered.size(); ++i) {
@@ -405,32 +396,45 @@ void bench_move_invphi_exp(const string &name,
     cout << "    SA recovery:    " << sa_duration.count() << "us" << endl;
     cout << "    Total:          " << total_duration.count() << "us" << endl;
     stringstream ss;
-    cout << "    Size:           " << move_invphi.serialize(ss) << " bytes" << endl;
+    cout << "    Size:           " << move_phi_inv.serialize(ss) << " bytes" << endl;
 }
 
-template<typename AlphabetType=Nucleotide>
-void run_phi_invphi_benchmarks(const vector<uchar> &bwt_heads,
+template<typename AlphabetType=nucleotide>
+void run_phi_phi_inv_benchmarks(const vector<uchar> &bwt_heads,
                                const vector<ulint> &bwt_run_lengths,
                                const vector<ulint> &sa_truth) {
-    cout << "=== Phi / InvPhi SA benchmarks ===" << endl;
+    cout << "=== phi / phi_inv SA benchmarks ===" << endl;
 
     cout << "Domain (SA size): " << sa_truth.size() << endl;
 
-    // Build Phi / InvPhi structures from the RLBWT.
-    auto [phi_lengths, phi_interval_permutations, phi_domain] = rlbwt_to_phi<AlphabetType>(bwt_heads, bwt_run_lengths);
-    auto [invphi_lengths, invphi_interval_permutations, invphi_domain] = rlbwt_to_invphi<AlphabetType>(bwt_heads, bwt_run_lengths);
+    // Build phi / phi_inv structures from the RLBWT.
+    size_t phi_domain;
+    ulint max_length;
+    auto t_phi_derive = high_resolution_clock::now();
+    auto [phi_lengths, phi_img_rank_inv] = rlbwt_to_phi_img_rank_inv<AlphabetType>(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
+    auto t_phi_derive_end = high_resolution_clock::now();
+    auto phi_derive_duration = duration_cast<microseconds>(t_phi_derive_end - t_phi_derive);
+    cout << "    phi derivation: " << phi_derive_duration.count() << "us" << endl;
+
+    size_t phi_inv_domain;
+    ulint max_length_inv;
+    auto t_phi_inv_derive = high_resolution_clock::now();
+    auto [phi_inv_lengths, phi_inv_img_rank_inv] = rlbwt_to_phi_inv_img_rank_inv<AlphabetType>(bwt_heads, bwt_run_lengths, &phi_inv_domain, &max_length_inv);
+    auto t_phi_inv_derive_end = high_resolution_clock::now();
+    auto phi_inv_derive_duration = duration_cast<microseconds>(t_phi_inv_derive_end - t_phi_inv_derive);
+    cout << "    phi_inv derivation: " << phi_inv_derive_duration.count() << "us" << endl;
 
     assert(phi_domain == sa_truth.size());
-    assert(invphi_domain == sa_truth.size());
+    assert(phi_inv_domain == sa_truth.size());
 
-    SplitParams no_splitting = NO_SPLITTING;
-    SplitParams splitting(8.0, std::nullopt); // length_capping_factor = 8.0
+    split_params no_splitting = NO_SPLITTING;
+    split_params splitting(8.0, std::nullopt); // length_capping_factor = 8.0
 
-    // Move-only Phi (standard + exponential)
+    // Move-only phi (standard + exponential)
     bench_move_phi(
         "MovePhi (no splitting)",
         phi_lengths,
-        phi_interval_permutations,
+        phi_img_rank_inv,
         phi_domain,
         sa_truth,
         no_splitting);
@@ -438,55 +442,55 @@ void run_phi_invphi_benchmarks(const vector<uchar> &bwt_heads,
     bench_move_phi(
         "MovePhi (split, 8.0)",
         phi_lengths,
-        phi_interval_permutations,
+        phi_img_rank_inv,
         phi_domain,
         sa_truth,
         splitting);
     bench_move_phi_exp(
         "MovePhiExp (no splitting)",
         phi_lengths,
-        phi_interval_permutations,
+        phi_img_rank_inv,
         phi_domain,
         sa_truth,
         no_splitting);
     bench_move_phi_exp(
         "MovePhiExp (split, 8.0)",
         phi_lengths,
-        phi_interval_permutations,
+        phi_img_rank_inv,
         phi_domain,
         sa_truth,
         splitting);
 
-    // Move-only InvPhi (standard + exponential)
-    bench_move_invphi(
-        "MoveInvPhi (no splitting)",
-        invphi_lengths,
-        invphi_interval_permutations,
-        invphi_domain,
+    // Move-only phi_inv (standard + exponential)
+    bench_move_phi_inv(
+        "Movephi_inv (no splitting)",
+        phi_inv_lengths,
+        phi_inv_img_rank_inv,
+        phi_inv_domain,
         sa_truth,
         no_splitting);
 
-    bench_move_invphi(
-        "MoveInvPhi (split, 8.0)",
-        invphi_lengths,
-        invphi_interval_permutations,
-        invphi_domain,
+    bench_move_phi_inv(
+        "Movephi_inv (split, 8.0)",
+        phi_inv_lengths,
+        phi_inv_img_rank_inv,
+        phi_inv_domain,
         sa_truth,
         splitting);
 
-    bench_move_invphi_exp(
-        "MoveInvPhiExp (no splitting)",
-        invphi_lengths,
-        invphi_interval_permutations,
-        invphi_domain,
+    bench_move_phi_inv_exp(
+        "Movephi_invExp (no splitting)",
+        phi_inv_lengths,
+        phi_inv_img_rank_inv,
+        phi_inv_domain,
         sa_truth,
         no_splitting);
 
-    bench_move_invphi_exp(
-        "MoveInvPhiExp (split, 8.0)",
-        invphi_lengths,
-        invphi_interval_permutations,
-        invphi_domain,
+    bench_move_phi_inv_exp(
+        "Movephi_invExp (split, 8.0)",
+        phi_inv_lengths,
+        phi_inv_img_rank_inv,
+        phi_inv_domain,
         sa_truth,
         splitting);
 
@@ -541,23 +545,23 @@ int main() {
             cout << endl;
 
             if (ds.nucleotide) {
-                using LFStd = MoveLF<>;
-                using LFExp = MoveLFImpl<true, true>;
-                using FLStd = MoveFL<>;
-                using FLExp = MoveFLImpl<true, true>;
+                using LFStd = lf_move<>;
+                using LFExp = lf_move_impl<true, true>;
+                using FLStd = fl_move<>;
+                using FLExp = fl_move_impl<true, true>;
                 run_lf_fl_benchmarks<LFStd, LFExp, FLStd, FLExp>(bwt_heads, bwt_run_lengths, text);
 
-                using LFPhi = MoveLF<>;
-                run_phi_invphi_benchmarks<Nucleotide>(bwt_heads, bwt_run_lengths, sa_truth);
+                using LFPhi = lf_move<>;
+                run_phi_phi_inv_benchmarks<nucleotide>(bwt_heads, bwt_run_lengths, sa_truth);
             } else {
-                using LFStd = MoveLFImpl<false, false, Alphabet>;
-                using LFExp = MoveLFImpl<true, true, Alphabet>;
-                using FLStd = MoveFLImpl<false, false, Alphabet>;
-                using FLExp = MoveFLImpl<true, true, Alphabet>;
+                using LFStd = lf_move_impl<false, false, alphabet>;
+                using LFExp = lf_move_impl<true, true, alphabet>;
+                using FLStd = fl_move_impl<false, false, alphabet>;
+                using FLExp = fl_move_impl<true, true, alphabet>;
                 run_lf_fl_benchmarks<LFStd, LFExp, FLStd, FLExp>(bwt_heads, bwt_run_lengths, text);
 
-                using LFPhi = MoveLFImpl<false, false, Alphabet>;
-                run_phi_invphi_benchmarks<Alphabet>(bwt_heads, bwt_run_lengths, sa_truth);
+                using LFPhi = lf_move_impl<false, false, alphabet>;
+                run_phi_phi_inv_benchmarks<alphabet>(bwt_heads, bwt_run_lengths, sa_truth);
             }
         }
 

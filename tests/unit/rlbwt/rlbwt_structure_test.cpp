@@ -1,7 +1,7 @@
 // Unit tests for RLBWTMoveStructure (RLBWT-specific MoveStructure wrapper).
 // Simple assert-based tests, no external framework.
 
-#include "internal/rlbwt/specializations/rlbwt_structure.hpp"
+#include "orbit/internal/rlbwt/specializations/rlbwt_structure.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -10,6 +10,9 @@
 using std::size_t;
 using std::vector;
 
+using namespace orbit;
+using namespace orbit::rlbwt;
+
 static void test_rlbwt_move_structure_relative_chars_and_widths() {
     // Small RLBWT example with 4 runs.
     // Characters are already mapped into [0, sigma) as RLBWTMoveStructure expects.
@@ -17,16 +20,16 @@ static void test_rlbwt_move_structure_relative_chars_and_widths() {
     const vector<ulint> lengths     = {1, 2, 1, 2};
     const vector<ulint> interval_perm = {0, 1, 3, 5};
     const ulint domain = 6;
-    const uchar sigma = 4; // Alphabet size (A,C,G,T).
+    const uchar sigma = 4; // alphabet size (A,C,G,T).
 
-    using MS = RLBWTMoveStructure<RLBWTCols>;
+    using MS = rlbwt_move_structure<rlbwt_columns>;
     MS ms(rlbwt_chars, lengths, interval_perm, domain, sigma, NO_SPLITTING);
 
-    assert(ms.size() == domain);
+    assert(ms.domain() == domain);
     assert(ms.runs() == lengths.size());
 
     auto widths = ms.get_widths();
-    using ColsTraits = MoveColsTraits<RLBWTCols>;
+    using ColsTraits = move_cols_traits<rlbwt_columns>;
 
     uchar w_char = widths[static_cast<size_t>(ColsTraits::CHARACTER)];
     // Character width should be enough to encode sigma-1.
@@ -37,8 +40,8 @@ static void test_rlbwt_move_structure_relative_chars_and_widths() {
         assert(ms.get_character(i) == rlbwt_chars[i]);
     }
 
-    // Position-based accessor should agree with interval-based accessor.
-    typename ColsTraits::Position pos{};
+    // position-based accessor should agree with interval-based accessor.
+    typename ColsTraits::position pos{};
     pos.interval = 1;
     pos.offset = 0;
     assert(ms.get_character(pos) == ms.get_character(pos.interval));
@@ -48,23 +51,23 @@ static void test_rlbwt_move_structure_relative_splitting_preserves_chars() {
     // Two runs: a long run (symbol 0) followed by a short run (symbol 1).
     const vector<uchar> rlbwt_chars = {0, 1};
     const vector<ulint> lengths     = {5, 1};
-    const vector<ulint> interval_perm = {1, 0};
+    const vector<ulint> interval_perm = {0, 5};
     const ulint domain = 6;
     const uchar sigma = 4;
 
-    using MS = RLBWTMoveStructure<RLBWTCols>;
+    using MS = rlbwt_move_structure<rlbwt_columns>;
 
-    SplitParams split;
-    split.length_capping_factor = 1.0; // force aggressive splitting if beneficial
+    split_params split;
+    split.length_capping = 1.0; // force aggressive splitting if beneficial
     MS ms(rlbwt_chars, lengths, interval_perm, domain, sigma, split);
 
-    assert(ms.size() == domain);
+    assert(ms.domain() == domain);
     assert(ms.runs() >= lengths.size()); // first run may be split into multiple
 
     // Sum up lengths per character to ensure splitting preserved run heads.
     ulint sym0_len = 0;
     ulint sym1_len = 0;
-    for (ulint i = 0; i < ms.runs(); ++i) {
+    for (ulint i = 0; i < ms.intervals(); ++i) {
         uchar ch = ms.get_character(i);
         if (ch == 0) {
             sym0_len += ms.get_length(i);
@@ -86,14 +89,14 @@ static void test_rlbwt_move_structure_absolute_chars_and_widths() {
     const ulint domain = 6;
     const uchar sigma = 4;
 
-    using MS = RLBWTMoveStructure<RLBWTColsIdx>;
+    using MS = rlbwt_move_structure<rlbwt_columns_idx>;
     MS ms(rlbwt_chars, lengths, interval_perm, domain, sigma, NO_SPLITTING);
 
-    assert(ms.size() == domain);
+    assert(ms.domain() == domain);
     assert(ms.runs() == lengths.size());
 
     auto widths = ms.get_widths();
-    using ColsTraits = MoveColsTraits<RLBWTColsIdx>;
+    using ColsTraits = move_cols_traits<rlbwt_columns_idx>;
 
     uchar w_char = widths[static_cast<size_t>(ColsTraits::CHARACTER)];
     assert(w_char == bit_width(static_cast<ulint>(sigma - 1)));

@@ -1,7 +1,7 @@
 // Unit tests for RLBWTRow and its traits.
 // Simple assert-based tests, no external framework.
 
-#include "internal/rlbwt/specializations/rlbwt_row.hpp"
+#include "orbit/internal/rlbwt/specializations/rlbwt_row.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -9,12 +9,15 @@
 
 using std::size_t;
 
-static void test_rlbwt_row_set_get_default() {
-    using Row = RLBWTRow<RLBWTCols>;
-    using RowTraits = Row::RowTraits;
-    using ColsTraits = MoveColsTraits<RLBWTCols>;
+using namespace orbit;
+using namespace orbit::rlbwt;
 
-    constexpr size_t NumCols = static_cast<size_t>(RLBWTCols::COUNT);
+static void test_rlbwt_row_set_get_default() {
+    using Row = rlbwt_row<rlbwt_columns>;
+    using RowTraits = Row::row_traits;
+    using ColsTraits = move_cols_traits<rlbwt_columns>;
+
+    constexpr size_t NumCols = static_cast<size_t>(rlbwt_columns::COUNT);
 
     Row row;
 
@@ -51,11 +54,11 @@ static void test_rlbwt_row_set_get_default() {
 }
 
 static void test_rlbwt_row_assert_widths() {
-    using Row = RLBWTRow<RLBWTCols>;
-    using RowTraits = Row::RowTraits;
-    using ColsTraits = MoveColsTraits<RLBWTCols>;
+    using Row = rlbwt_row<rlbwt_columns>;
+    using RowTraits = Row::row_traits;
+    using ColsTraits = move_cols_traits<rlbwt_columns>;
 
-    constexpr size_t NumCols = static_cast<size_t>(RLBWTCols::COUNT);
+    constexpr size_t NumCols = static_cast<size_t>(rlbwt_columns::COUNT);
     std::array<uchar, NumCols> widths{};
 
     widths[static_cast<size_t>(ColsTraits::PRIMARY)]   = static_cast<uchar>(RowTraits::PRIMARY_BITS);
@@ -68,9 +71,9 @@ static void test_rlbwt_row_assert_widths() {
 
 static void test_rlbwt_row_traits_aliases() {
     // Default traits for RLBWTCols should alias the configured default bit-layout.
-    using DefaultBits = RLBWTColsDefault;
-    using TraitsFromBits = MoveRowTraits<DefaultBits>;
-    using TraitsFromCols = MoveRowTraits<RLBWTCols>;
+    using DefaultBits = rlbwt_columns_default;
+    using TraitsFromBits = move_row_traits<DefaultBits>;
+    using TraitsFromCols = move_row_traits<rlbwt_columns>;
 
     static_assert(TraitsFromBits::CHARACTER_BITS == TraitsFromCols::CHARACTER_BITS, "CHARACTER_BITS mismatch");
     static_assert(TraitsFromBits::PRIMARY_BITS   == TraitsFromCols::PRIMARY_BITS,   "PRIMARY_BITS mismatch");
