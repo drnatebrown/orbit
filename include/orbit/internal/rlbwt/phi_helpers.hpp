@@ -79,7 +79,14 @@ inline std::tuple<int_vec, int_vec> rlbwt_to_phi_images(const std::vector<uchar>
 }   
 
 template<typename lf_t>
-inline std::tuple<int_vec, int_vec> rlbwt_to_phi_img_rank_inv(const std::vector<uchar>& bwt_heads, const std::vector<ulint>& bwt_run_lengths, lf_t& lf, size_t* domain = nullptr, ulint* max_length = nullptr) {
+inline std::tuple<int_vec, int_vec> rlbwt_to_phi_img_rank_inv(
+    const std::vector<uchar>& bwt_heads,
+    const std::vector<ulint>& bwt_run_lengths,
+    lf_t& lf,
+    size_t* domain = nullptr,
+    ulint* max_length = nullptr,
+    int_vec* move_run_to_phi_out = nullptr
+) {
     int_vec phi_lengths(lf.runs(), bit_width(lf.domain() - 1));
 
     size_t UNUSED_INTERVAL = max_val(bit_width(lf.intervals()));
@@ -138,15 +145,24 @@ inline std::tuple<int_vec, int_vec> rlbwt_to_phi_img_rank_inv(const std::vector<
     if (max_length != nullptr) {
         *max_length = max_length_seen;
     }
+    if (move_run_to_phi_out != nullptr) {
+        *move_run_to_phi_out = move_run_to_phi;
+    }
 
     return {phi_lengths, phi_img_rank_inv};
 }
 
 template<typename alphabet_t=nucleotide>
-inline std::tuple<int_vec, int_vec> rlbwt_to_phi_img_rank_inv(const std::vector<uchar>& bwt_heads, const std::vector<ulint>& bwt_run_lengths, size_t* domain = nullptr, ulint* max_length = nullptr) {
+inline std::tuple<int_vec, int_vec> rlbwt_to_phi_img_rank_inv(
+    const std::vector<uchar>& bwt_heads,
+    const std::vector<ulint>& bwt_run_lengths,
+    size_t* domain = nullptr,
+    ulint* max_length = nullptr,
+    int_vec* move_run_to_phi_out = nullptr
+) {
     // Need a move structure with LF to find SA samples
     lf_move_impl_default<alphabet_t> move_lf(bwt_heads, bwt_run_lengths);
-    return rlbwt_to_phi_img_rank_inv(bwt_heads, bwt_run_lengths, move_lf, domain, max_length);
+    return rlbwt_to_phi_img_rank_inv(bwt_heads, bwt_run_lengths, move_lf, domain, max_length, move_run_to_phi_out);
 }
 
 template<typename lf_t>

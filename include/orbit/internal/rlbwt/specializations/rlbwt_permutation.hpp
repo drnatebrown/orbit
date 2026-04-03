@@ -33,7 +33,7 @@ public:
 
     rlbwt_permutation() = default;
 
-    // Gated constructors for empty data columns
+    // Gated constructors for empty data columns or separated layouts
     template<typename rlbwt_interval_encoding_t,
              typename dc = data_columns_t,
              std::enable_if_t<std::is_same_v<dc, empty_data_columns>, int> = 0>
@@ -45,7 +45,7 @@ public:
     rlbwt_permutation(const std::vector<uchar>& bwt, const split_params& sp = {})
     : rlbwt_permutation([&]{
         auto [heads, lens] = bwt_to_rlbwt(bwt);
-        return rlbwt_interval_encoding(heads, lens, sp);
+        return find_interval_encoding(heads, lens, sp);
     }()) {}
 
     template<typename container1_t, typename container2_t,
@@ -54,6 +54,24 @@ public:
     rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, 
                   const split_params& sp = split_params()) 
     : rlbwt_permutation(rlbwt_heads, rlbwt_run_lengths, sp, std::vector<data_tuple>(rlbwt_heads.size())) {}
+
+    // Gated constructors for separated layouts
+    template<typename container1_t, typename container2_t,
+             typename dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, 
+                  const split_params& sp = split_params()) 
+    : rlbwt_permutation(find_interval_encoding(rlbwt_heads, rlbwt_run_lengths, sp)) {}
+
+    template<typename rlbwt_interval_encoding_t,
+             typename dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    rlbwt_permutation(const rlbwt_interval_encoding_t& enc) {
+        base::split_params_ = enc.get_split_params();
+        alphabet_ = enc.get_alphabet();
+        packed_vector<base_columns> base_structure = base::move_structure_base::find_structure(enc);
+        base::populate_structure(std::move(base_structure), enc.domain(), enc.runs());
+    }
 
     // Regular non-gated constructors for user defined data columns
     template<typename rlbwt_interval_encoding_t>

@@ -19,7 +19,9 @@ constexpr bool DEFAULT_EXPONENTIAL_SEARCH = false; // Whether to use exponential
 template <typename data_columns_t, bool integrated_move_structure>
 struct separated_data_holder;
 template <typename data_columns_t>
-struct separated_data_holder<data_columns_t, false> { [[no_unique_address]] packed_vector<data_columns_t> data_cols; };
+struct separated_data_holder<data_columns_t, false> { 
+    bool data_initialized = false;
+    [[no_unique_address]] packed_vector<data_columns_t> data_cols; };
 template <typename data_columns_t>
 struct separated_data_holder<data_columns_t, true> { /* empty */ };
 
@@ -70,11 +72,12 @@ public:
 
     // At compile time, check if trying to integrate user data to MoveTable, which uses bitpacked structs
     static_assert(!(integrated_move_structure && is_move_table_type()),
-    "Cannot integrate user data with MoveTable. Use move_vector or set integrated_move_structure=false."
-    "MoveTable for integrated data requires specialized implementation!");
+    "Cannot integrate user data with move_table. Use move_vector or set integrated_move_structure=false."
+    "move_table for integrated data requires specialized implementation!");
 
     permutation_impl() = default;
 
+    /*** GATED CONSTRUCTORS ***/
     // Gated constructors for when data columns are empty
     // Constructor from permutation vector
     template<class dc = data_columns_t,
@@ -97,6 +100,26 @@ public:
              std::enable_if_t<std::is_same_v<dc, empty_data_columns>, int> = 0>
     permutation_impl(const container1_t& lengths, const container2_t& images, const split_params& sp = split_params())
     : permutation_impl(lengths, images, sp, std::vector<data_tuple>(lengths.size())) {}
+
+    // Constructor which does not require run data (separated layout)
+    template<typename container1_t, typename container2_t,
+             class dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    permutation_impl(const container1_t& lengths, const container2_t& images, split_params sp = split_params()) :
+    permutation_impl(interval_encoding_impl<>::from_lengths_and_images(lengths, images, sp)) {}
+
+    template<typename interval_encoding_t,
+             class dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    permutation_impl(const interval_encoding_t& enc) {
+        split_params_ = enc.get_split_params();
+        size_t domain = enc.domain();
+        size_t runs = enc.runs();
+        packed_vector<base_columns> base_structure = move_structure_base::find_structure(enc);
+        populate_structure(std::move(base_structure), domain, runs);
+    }
+
+    /*** REGULAR CONSTRUCTORS ***/
 
     // Intended constructor for manual splitting of run data
     template<typename interval_encoding_t>
@@ -384,6 +407,58 @@ public:
         return split_params_;
     }
 
+    /*** DATA COLUMNS MANIPULATION METHODS ***/
+    // TODO refactor so these methods work for both integrated and separated layouts
+
+    // For separated layouts, allow attaching data columns after construction.
+    template<class dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    void init_data(const std::array<uchar, num_run_cols>& data_cols_widths) {
+        if (this->data_initialized) {
+            throw std::invalid_argument("Data columns already set.");
+        }
+        this->data_initialized = true;
+        this->data_cols = packed_vector<data_columns>(move_structure.intervals(), data_cols_widths);
+    }
+
+    // For separated layouts, allow attaching data columns after construction.
+    template<class dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    void set_data(const std::vector<data_tuple>& data_cols) {
+        if (data_cols.size() != move_structure.intervals()) {
+            throw std::invalid_argument("Data size must match the number of intervals in the move structure.");
+        }
+        auto run_cols_widths = get_data_cols_widths(data_cols);
+        fill_separated_data(data_cols, run_cols_widths);
+    }
+
+    // For separated layouts, allow attaching data columns after construction.
+    template<class dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    void set_row(size_t interval, const data_tuple& data) {
+        if (!this->data_initialized) {
+            throw std::invalid_argument("Data columns not initialized yet.");
+        }
+        this->data_cols.set_row(interval, data);
+    }
+
+    template<data_columns col,
+             class dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    void set(ulint interval, const ulint data) {
+        if (!this->data_initialized) {
+            throw std::invalid_argument("Data columns not initialized yet.");
+        }
+        this->data_cols.set<col>(interval, data);
+    }
+
+    template<data_columns col,
+             class dc = data_columns_t,
+             std::enable_if_t<!std::is_same_v<dc, empty_data_columns> && !integrated_move_structure, int> = 0>
+    void set(position position, const ulint data) {
+        set<col>(position.interval, data);
+    }
+
     /*** SERIALIZATION METHODS ***/
     
     size_t serialize(std::ostream& os) {
@@ -495,6 +570,10 @@ protected:
     }
 
     void fill_separated_data(const std::vector<data_tuple>& run_data, const std::array<uchar, num_run_cols>& run_cols_widths) {
+        if (this->data_initialized) {
+            throw std::invalid_argument("Run data already initialized.");
+        }
+        this->data_initialized = true;
         this->data_cols = packed_vector<data_columns>(run_data.size(), run_cols_widths);
         for (size_t i = 0; i < run_data.size(); ++i) {
             this->data_cols.set_row(i, run_data[i]);
@@ -520,6 +599,11 @@ protected:
             move_structure = move_structure_perm(std::move(base_structure), domain, runs);
             fill_separated_data(run_data, run_cols_widths);
         }
+    }
+
+    // Sets move structure from the base structure without setting run data (used for separated layouts)
+    void populate_structure(packed_vector<base_columns>&& base_structure, const size_t domain, const size_t runs) {
+        move_structure = move_structure_perm(std::move(base_structure), domain, runs);
     }
 };
 

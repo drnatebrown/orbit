@@ -209,11 +209,30 @@ static void test_runperm_next_with_steps_and_pred_succ() {
     assert(!pred_missing.has_value());
 }
 
+static void test_runperm_set_run_data_after_construction() {
+    const vector<ulint> perm = {1, 2, 9, 10, 11, 3, 12, 13, 4, 5, 14, 0, 15, 6, 7, 8};
+    auto [lengths, interval_perm] = get_permutation_intervals(perm);
+
+    using RP = runperm_separated_absolute<TestRunCols>;
+    RP rp(lengths, interval_perm, vector<TestRunData>(lengths.size()));
+
+    vector<TestRunData> run_data(lengths.size());
+    for (size_t i = 0; i < run_data.size(); ++i) {
+        run_data[i] = {static_cast<ulint>(100 + i), static_cast<ulint>(200 + i)};
+    }
+
+    rp.set_run_data(run_data);
+    for (ulint i = 0; i < rp.intervals(); ++i) {
+        assert(rp.get_row(i) == run_data[i]);
+    }
+}
+
 int main() {
     test_runperm_separated_absolute_basic_mapping_and_run_data();
     test_runperm_up_down_navigation();
     test_runperm_serialize_roundtrip_separated_absolute();
     test_runperm_next_with_steps_and_pred_succ();
+    test_runperm_set_run_data_after_construction();
 
     std::cout << "runperm unit tests passed" << std::endl;
     return 0;
