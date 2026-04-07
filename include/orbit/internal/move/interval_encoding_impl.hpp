@@ -310,13 +310,13 @@ protected:
         split_result<int_vector_t> split_result;
         
         if (this->split_params_.length_capping) {
-            split_by_length_capping(curr_lengths, curr_img_rank_inv, this->domain_, *this->split_params_.length_capping, split_result);
+            move_splitting::split_by_length_capping(curr_lengths, curr_img_rank_inv, this->domain_, *this->split_params_.length_capping, split_result);
             curr_lengths = std::move(split_result.lengths);
             curr_img_rank_inv = std::move(split_result.img_rank_inv);
             new_max_length = split_result.max_length;
         }
         if (this->split_params_.balancing) {
-            split_by_balancing(curr_lengths, curr_img_rank_inv, this->domain_, *this->split_params_.balancing, split_result);
+            move_splitting::split_by_balancing(curr_lengths, curr_img_rank_inv, this->domain_, *this->split_params_.balancing, split_result);
             curr_lengths = std::move(split_result.lengths);
             curr_img_rank_inv = std::move(split_result.img_rank_inv);
             new_max_length = split_result.max_length;

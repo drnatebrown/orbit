@@ -30,7 +30,7 @@ void test_split_by_length_capping_no_splitting() {
     test_int_vector img_rank_inv(img_rank_inv_vec);
 
     test_split_result result;
-    split_by_length_capping(lengths, img_rank_inv, domain, factor, result);
+    move_splitting::split_by_length_capping(lengths, img_rank_inv, domain, factor, result);
 
     assert(result.lengths.size() == lengths_vec.size());
     assert(result.img_rank_inv.size() == img_rank_inv_vec.size());
@@ -56,7 +56,7 @@ void test_split_by_length_capping_with_splitting() {
     test_int_vector img_rank_inv(img_rank_inv_vec);
 
     test_split_result result;
-    split_by_max_allowed_length(lengths, img_rank_inv, domain, max_length, result);
+    move_splitting::split_by_max_allowed_length(lengths, img_rank_inv, domain, max_length, result);
 
     const vector<ulint> expected_lengths = {2, 2, 1, 1, 2, 2, 1, 1, 1, 2, 1};
     const vector<ulint> expected_perm = {1, 9, 11, 3, 12, 4, 14, 0, 15, 6, 8};
@@ -84,7 +84,7 @@ void test_split_by_length_capping_mixed_lengths() {
     test_int_vector img_rank_inv(img_rank_inv_vec);
 
     test_split_result result;
-    split_by_length_capping(lengths, img_rank_inv, domain, factor, result);
+    move_splitting::split_by_length_capping(lengths, img_rank_inv, domain, factor, result);
 
     // avg_run_length = 19 / 3 ≈ 6.333...
     // ceil(avg_run_length * 0.5) = ceil(3.166...) = 4
@@ -108,17 +108,17 @@ void test_split_by_length_capping_mixed_lengths() {
 
 // Dummy test for balancing: just ensure the function is callable.
 void test_split_by_balancing_dummy() {
-    const vector<ulint> lengths_vec = {3, 5, 2};
-    const vector<ulint> perm_vec    = {0, 3, 8};
-    const vector<ulint> img_rank_inv_vec = {0, 1, 2};
-    const ulint domain = 10;
+    const vector<ulint> lengths_vec = {2, 3, 1, 2, 2, 1, 1, 1, 3};
+    const vector<ulint> perm_vec = {1, 9, 3, 12, 4, 14, 0, 15, 6};
+    const vector<ulint> img_rank_inv_vec = {6, 0, 2, 4, 8, 1, 3, 5, 7};
+    const ulint domain = 15;
     const ulint factor = 4;
 
     test_int_vector lengths(lengths_vec);
     test_int_vector img_rank_inv(img_rank_inv_vec);
 
     test_split_result result;
-    split_by_balancing(lengths, img_rank_inv, domain, factor, result);
+    move_splitting::split_by_balancing(lengths, img_rank_inv, domain, factor, result);
 }
 
 int main() {
