@@ -49,9 +49,9 @@ Orbit provides compact representations of run-length encoded permutations, with 
 - **Move Structures**: Advanced data structures for fast and cache efficient navigation of runny permutations.
 - **Compact Representation**: Bitpacked, using the minimum fixed width per move structure column and user defined data columns.
 - **Advanced Storage** Allows efficient storage and retrieval of additional information alongside permutation which can be bitpacked alongside the move structure for cache efficiency.
-- **Splitting Schemes**: Optimization schemes for length capping and balancing providing faster and smaller move structures.
+- **Splitting Schemes**: Optimization schemes for length capping and balancing providing faster and smaller move structures, running in $O(r)$-time and space.
 - **RLBWT Specializations**:
-  - LF/FL navigation with character access.
+  - LF/FL navigation with character access, constructed in $O(r)$-time and space from RLBWT.
   - $\phi$ / $\phi^{-1}$ navigation with SA retrieval.
   - Helpers to derive $\phi$ / $\phi^{-1}$ permutations from RLBWT in $O(n)$-time and $O(r)$-space.
 - **Flexible Configuration**: Multiple template parameters for various move structure representations.
@@ -147,8 +147,8 @@ The public API simplifies template parameters and methods, see the internal impl
 - **Absolute vs Relative Positions**: Absolute positions enable full permutation positional information but increase memory usage. The space usage for a runny permutation of $r$ runs over domain $n$ is approximately:
   - **Absolute**: $r \log r + 2 r \log n$ bits
   - **Relative**: $r \log r + 2 r \log \frac{n}{r}$ bits
-- **Length Capping**: Can greatly reduce the size of the data structure, especially for relative positions. Also gives amortized guarantees and practical speed up when tuned correctly. Where length capping factor is $c$, splits any runs/intervals longer than $c$ times the average run length of the original permutation.
-- **Balancing**: Where $\alpha$ is the balancing factor, guarantees less than $2\alpha$ complexity for a single permutation step. However, can increase the size of the data structures due to splitting intervals if not tuned correctly. Length capping and balancing often work well together.
+- **Length Capping**: Can greatly reduce the size of the data structure, especially for relative positions. Also gives amortized guarantees and practical speed up when tuned correctly. Where length capping factor is $c$, splits any runs/intervals longer than $c$ times the average run length of the original permutation. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2602.11029))
+- **Balancing**: Where $\alpha$ is the balancing factor, guarantees less than $2\alpha$ complexity for a single permutation step. However, can increase the size of the data structures due to splitting intervals if not tuned correctly. Length capping and balancing often work well together. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2603.22147)).
 
 ## Advanced Usage
 
