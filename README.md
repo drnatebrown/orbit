@@ -185,7 +185,7 @@ The public API simplifies template parameters and methods, see the internal impl
 ## Performance Considerations
 
 - **Integrated vs Separated**: Integrating user data alongside the move structure offer better cache locality but may cause slower move queries since navigating the data structure requires loading larger entries.
-- **Absolute vs Relative Positions**: Absolute positions enable full permutation positional information but increase memory usage. The space usage for a runny permutation of $r$ runs over domain $n$ is approximately:
+- **Absolute vs Relative Positions**: Absolute positions enable full permutation positional information but increases memory usage. The space usage for a runny permutation of $r$ runs over domain $n$ is approximately:
   - **Absolute**: $r \log r + 2 r \log n$ bits
   - **Relative**: $r \log r + 2 r \log \frac{n}{r}$ bits
 - **Length Capping**: Can greatly reduce the size of the data structure, especially for relative positions. Also gives amortized guarantees and practical speed up when tuned correctly. Where length capping factor is $c$, splits any runs/intervals longer than $c$ times the average run length of the original permutation. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2602.11029))
