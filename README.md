@@ -188,8 +188,8 @@ The public API simplifies template parameters and methods, see the internal impl
 - **Absolute vs Relative Positions**: Absolute positions enable full permutation positional information but increases memory usage. The space usage for a runny permutation of $r$ runs over domain $n$ is approximately:
   - **Absolute**: $r \log r + 2 r \log n$ bits
   - **Relative**: $r \log r + 2 r \log \frac{n}{r}$ bits
-- **Length Capping**: Can greatly reduce the size of the data structure, especially for relative positions. Also gives amortized guarantees and practical speed up when tuned correctly. Where length capping factor is $c$, splits any runs/intervals longer than $c$ times the average run length of the original permutation. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2602.11029))
-- **Balancing**: Where $\alpha$ is the balancing factor, guarantees less than $2\alpha$ complexity for a single permutation step. However, can increase the size of the data structures due to splitting intervals if not tuned correctly. Length capping and balancing often work well together. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2603.22147)).
+- **Length Capping**: Can greatly reduce the size of the data structure, especially for relative positions. Also gives amortized guarantees and practical speed up when tuned correctly. Where length capping factor is $c$, splits any runs/intervals longer than $c$ times the average run length of the original permutation. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2602.11029)). Where default splitting parameters are used, $c$ is set to 8.
+- **Balancing**: Where $\alpha$ is the balancing factor, guarantees less than $2\alpha$ complexity for a single permutation step. However, can increase the size of the data structures due to splitting intervals. Length capping and balancing often work well together. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2603.22147)). Where default splitting parameters are used, $\alpha$ is set to 16.
 
 ## Advanced Usage
 
