@@ -48,7 +48,7 @@ Orbit provides compact representations of run-length encoded permutations, with 
 
 - **Move Structures**: Advanced data structures for fast and cache efficient navigation of runny permutations.
 - **Compact Representation**: Bitpacked, using the minimum fixed width per move structure column and user defined data columns.
-- **Advanced Storage** Allows efficient storage and retrieval of additional information alongside permutation which can be bitpacked alongside the move structure for cache efficiency.
+- **Advanced Storage** Allows efficient storage and retrieval of additional information which can be bitpacked alongside the permutation for cache efficiency.
 - **Splitting Schemes**: Optimization schemes for length capping and balancing providing faster and smaller move structures, running in $O(r)$-time and space.
 - **RLBWT Specializations**:
   - LF/FL navigation with character access, constructed in $O(r)$-time and space from RLBWT.
