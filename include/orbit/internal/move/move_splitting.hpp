@@ -185,7 +185,7 @@ public:
         uchar upper_bound_bits = bit_width(intervals_upper_bound - 1);
         uchar upper_bound_next_bits = bit_width(intervals_upper_bound);
         uchar start_bits = bit_width(domain - 1);
-        
+
         packed_vector<interval_cols> input_intervals(intervals_upper_bound, {start_bits, upper_bound_next_bits, upper_bound_bits, upper_bound_bits});
         packed_vector<interval_cols> output_intervals(intervals_upper_bound, {start_bits, upper_bound_next_bits, upper_bound_bits, upper_bound_bits});
         
@@ -211,24 +211,24 @@ public:
 
             // balance input
             if (curr_input_start < curr_output_start || state.output_idx == state.END_IDX) {
-                std::optional<ulint> split_idx = balance_input(input_intervals, output_intervals, state);
-                update_balanced_up_to_idx(input_intervals, output_intervals, state, split_idx, true);
+                std::optional<ulint> split_start = balance_input(input_intervals, output_intervals, state);
+                update_balanced_up_to_idx(input_intervals, output_intervals, state, split_start, true);
             }
             // balance output
             else if (curr_output_start < curr_input_start || state.input_idx == state.END_IDX) {
-                std::optional<ulint> split_idx = balance_output(input_intervals, output_intervals, state);
-                update_balanced_up_to_idx(input_intervals, output_intervals, state, split_idx, false);
+                std::optional<ulint> split_start = balance_output(input_intervals, output_intervals, state);
+                update_balanced_up_to_idx(input_intervals, output_intervals, state, split_start, false);
             }
             else {
                 // balance input
                 if (curr_input_length > curr_output_length) {
-                    std::optional<ulint> split_idx = balance_input(input_intervals, output_intervals, state);
-                    update_balanced_up_to_idx(input_intervals, output_intervals, state, split_idx, true);
+                    std::optional<ulint> split_start = balance_input(input_intervals, output_intervals, state);
+                    update_balanced_up_to_idx(input_intervals, output_intervals, state, split_start, true);
                 }
                 // balance output
                 else if (curr_output_length > curr_input_length) {
-                    std::optional<ulint> split_idx = balance_output(input_intervals, output_intervals, state);
-                    update_balanced_up_to_idx(input_intervals, output_intervals, state, split_idx, false);
+                    std::optional<ulint> split_start = balance_output(input_intervals, output_intervals, state);
+                    update_balanced_up_to_idx(input_intervals, output_intervals, state, split_start, false);
                 }
                 else {
                     // No balancing needed
@@ -406,7 +406,7 @@ private:
     
         // Find weight (number of starts in overlap_intervals that are contained in the interval to balance)
         ulint overlap_start = get_start(overlap_intervals, overlap_idx, state);
-        while (overlap_start < to_interval_end && weight <= 2 * state.balancing_factor) {
+        while (overlap_start < to_interval_end && weight < 2 * state.balancing_factor) {
             if (overlap_start > to_interval_start) {
                 ++weight;
             }
@@ -427,14 +427,16 @@ private:
         //     state.skip_ahead_idx = overlap_idx;
         // }
 
-        if (weight > 2 * state.balancing_factor) {
+        if (weight == 2 * state.balancing_factor) {
             split_interval(to_balance_intervals, overlap_intervals, to_balance_idx, split_candidate_idx, state);
             ulint new_overlap_idx = state.next_free_idx - 1;
+            ulint new_to_balance_idx = state.next_free_idx - 1;
+            ulint new_overlap_start = get_start(overlap_intervals, new_overlap_idx, state);
+            ulint new_to_balance_start = get_start(to_balance_intervals, new_to_balance_idx, state);
 
             // Need to update pred values and make recursive call if the new overlap interval is in the balanced portion of the intervals
-            if (new_overlap_idx < state.balanced_up_to) {
+            if (new_overlap_start < state.balanced_up_to) {
                 ulint mapped_to_overlap_idx = get_mapping(to_balance_intervals, to_balance_idx);
-                ulint new_overlap_start = get_start(overlap_intervals, new_overlap_idx, state);
     
                 // Gets the interval in to_balance_intervals that overlaps with the new overlap interval
                 ulint new_overlap_pred_in_balance = get_pred(overlap_intervals, mapped_to_overlap_idx);
@@ -459,14 +461,14 @@ private:
                 // balance(to_balance_intervals, overlap_intervals, new_overlap_pred_in_balance, state, false);
                 balance(to_balance_intervals, overlap_intervals, new_overlap_pred_in_balance, state);
             }
-            return new_overlap_idx;
+            return new_to_balance_start;
         }
         return std::nullopt;
     }
 
-    static inline void update_balanced_up_to_idx(packed_vector<interval_cols>& input_intervals, packed_vector<interval_cols>& output_intervals, balance_state& state, std::optional<ulint> split_idx = std::nullopt, bool input_balance_step = true) {
-        if (split_idx.has_value()) {
-            state.balanced_up_to = split_idx.value();
+    static inline void update_balanced_up_to_idx(packed_vector<interval_cols>& input_intervals, packed_vector<interval_cols>& output_intervals, balance_state& state, std::optional<ulint> split_start = std::nullopt, bool input_balance_step = true) {
+        if (split_start.has_value()) {
+            state.balanced_up_to = split_start.value();
         }
         else {
             if (input_balance_step) {
@@ -477,37 +479,54 @@ private:
             }
         }
 
+        // if (input_balance_step) {
+        //     state.input_idx = get_next(input_intervals, state.input_idx);
+        // }
+        // else {
+        //     state.output_idx = get_next(output_intervals, state.output_idx);
+        // }
+
         // update any predecessor values
         ulint prev_input_idx = state.input_idx;
         ulint prev_output_idx = state.output_idx;
-        state.input_idx = (state.input_idx == state.END_IDX) ? state.END_IDX : get_next(input_intervals, state.input_idx);
-        state.output_idx = (state.output_idx == state.END_IDX) ? state.END_IDX : get_next(output_intervals, state.output_idx);
-        ulint curr_input_start = get_start(input_intervals, state.input_idx, state);
-        ulint curr_output_start = get_start(output_intervals, state.output_idx, state);
-        while ((curr_input_start <= state.balanced_up_to || curr_output_start <= state.balanced_up_to) && (state.input_idx != state.END_IDX || state.output_idx != state.END_IDX)) {
-            if (curr_input_start < curr_output_start || state.output_idx == state.END_IDX) {
-                input_intervals.set<interval_cols::PRED>(state.input_idx, prev_output_idx);
+        ulint curr_input_idx = (state.input_idx == state.END_IDX) ? state.END_IDX : get_next(input_intervals, state.input_idx);
+        ulint curr_output_idx = (state.output_idx == state.END_IDX) ? state.END_IDX : get_next(output_intervals, state.output_idx);
+        ulint curr_input_start = get_start(input_intervals, curr_input_idx, state);
+        ulint curr_output_start = get_start(output_intervals, curr_output_idx, state);
 
-                prev_input_idx = state.input_idx;
-                state.input_idx = get_next(input_intervals, state.input_idx);
-                curr_input_start = get_start(input_intervals, state.input_idx, state);
+        while ((curr_input_start <= state.balanced_up_to || curr_output_start <= state.balanced_up_to) && (curr_input_idx != state.END_IDX || curr_output_idx != state.END_IDX)) {
+            if (curr_input_start < curr_output_start || curr_output_idx == state.END_IDX) {
+                input_intervals.set<interval_cols::PRED>(curr_input_idx, prev_output_idx);
+                state.input_idx = curr_input_idx;
+
+                prev_input_idx = curr_input_idx;
+                curr_input_idx = get_next(input_intervals, curr_input_idx);
+                curr_input_start = get_start(input_intervals, curr_input_idx, state);   
             } else if (curr_output_start < curr_input_start || state.input_idx == state.END_IDX) {
-                output_intervals.set<interval_cols::PRED>(state.output_idx, prev_input_idx);
+                output_intervals.set<interval_cols::PRED>(curr_output_idx, prev_input_idx);
+                state.output_idx = curr_output_idx;
 
-                prev_output_idx = state.output_idx;
-                state.output_idx = get_next(output_intervals, state.output_idx);
-                curr_output_start = get_start(output_intervals, state.output_idx, state);
+                prev_output_idx = curr_output_idx;
+                curr_output_idx = get_next(output_intervals, curr_output_idx);
+                curr_output_start = get_start(output_intervals, curr_output_idx, state);
             } else {
-                input_intervals.set<interval_cols::PRED>(state.input_idx, state.output_idx);
-                output_intervals.set<interval_cols::PRED>(state.output_idx, state.input_idx);
+                input_intervals.set<interval_cols::PRED>(curr_input_idx, curr_output_idx);
+                output_intervals.set<interval_cols::PRED>(curr_output_idx, curr_input_idx);
+                state.input_idx = curr_input_idx;
+                state.output_idx = curr_output_idx;
 
-                prev_input_idx = state.input_idx;
-                prev_output_idx = state.output_idx;
-                state.input_idx = get_next(input_intervals, state.input_idx);
-                state.output_idx = get_next(output_intervals, state.output_idx);
-                curr_input_start = get_start(input_intervals, state.input_idx, state);
-                curr_output_start = get_start(output_intervals, state.output_idx, state);
+                prev_input_idx = curr_input_idx;
+                prev_output_idx = curr_output_idx;
+                curr_input_idx = get_next(input_intervals, curr_input_idx);
+                curr_output_idx = get_next(output_intervals, curr_output_idx);
+                curr_input_start = get_start(input_intervals, curr_input_idx, state);
+                curr_output_start = get_start(output_intervals, curr_output_idx, state);
             }
+        }
+
+        if (state.balanced_up_to == state.domain && curr_input_idx == state.END_IDX && curr_output_idx == state.END_IDX) {
+            state.input_idx = state.END_IDX;
+            state.output_idx = state.END_IDX;
         }
     }
 };
