@@ -20,7 +20,7 @@ public:
     rlbwt_move_structure() = default;
 
     rlbwt_move_structure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const uchar sigma, const split_params& sp = split_params())
-    : base(find_structure(head_chars, lengths, images, domain, sigma, sp), domain, lengths.size()) {}
+    : base(find_structure(head_chars, lengths, images, sigma, sp), domain, lengths.size()) {}
 
     template<typename rlbwt_permutation_t>
     rlbwt_move_structure(const rlbwt_permutation_t& permutation) {
