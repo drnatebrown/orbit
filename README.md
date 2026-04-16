@@ -1,12 +1,11 @@
 # Orbit
+![GitHub release](https://img.shields.io/github/v/release/drnatebrown/orbit)
 
 $O(r)$-space bitpacked (Orbit) move structures for runny permutations! 
 
 Flexible plug-and-play header library implementing compact data structures for representing run-length encoded permutations. Since permutations decompose into cycles, navigation becomes a literal orbit, stepping through positions as if circling an encapsulated world. Engineered for compactness, Orbit features $O(r)$-space bitpacked move structures and specialized RLBWT implementations for high-performance indexing. Can be used as a foundation for further applications, providing storage and retrieval of user fields alongside the permutation intervals. Further, powerful splitting optimizations such as length capping and balancing are implemented. 
 
 Described in greater detail at [https://arxiv.org/abs/2602.11029](https://arxiv.org/abs/2602.11029).
-
-Version 1.0.0
 
 ## Quick Start
 
