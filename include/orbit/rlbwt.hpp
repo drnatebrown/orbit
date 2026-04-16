@@ -109,44 +109,12 @@ using lf_permutation_separated_absolute = lf_permutation<data_columns_t, false, 
 template<typename data_columns_t = empty_data_columns, typename alphabet_t = nucleotide>
 using lf_permutation_integrated_absolute = lf_permutation<data_columns_t, true, true, alphabet_t>;
 
-// Alpha release aliases
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
-         bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using runperm_lf = lf_permutation<data_columns_t, integrated_move_structure, store_absolute_positions, alphabet_t>;
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
-         bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using RunPermLF = lf_permutation<data_columns_t, integrated_move_structure, store_absolute_positions, alphabet_t>;
-template<typename data_columns_t = empty_data_columns, typename alphabet_t = nucleotide>
-using runperm_lf_absolute = lf_permutation<data_columns_t, false, true, alphabet_t>;
-template<typename data_columns_t = empty_data_columns, typename alphabet_t = nucleotide>
-using runperm_lf_separated = lf_permutation<data_columns_t, false, false, alphabet_t>;
-template<typename data_columns_t = empty_data_columns, typename alphabet_t = nucleotide>
-using runperm_lf_integrated = lf_permutation<data_columns_t, true, false, alphabet_t>;
-template<typename data_columns_t = empty_data_columns, typename alphabet_t = nucleotide>
-using runperm_lf_separated_absolute = lf_permutation<data_columns_t, false, true, alphabet_t>;
-template<typename data_columns_t = empty_data_columns, typename alphabet_t = nucleotide>
-using runperm_lf_integrated_absolute = lf_permutation<data_columns_t, true, true, alphabet_t>;
-
 // === lf_move ===
 template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
          typename alphabet_t = nucleotide>
 using lf_move = lf_move_impl<store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, move_vector>;
 using lf_move_absolute = lf_move<true>;
 using lf_move_relative = lf_move<false>;
-
-// Alpha release aliases
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using move_lf = lf_move<store_absolute_positions, alphabet_t>;
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using MoveLF = lf_move<store_absolute_positions, alphabet_t>;
-using move_lf_absolute = lf_move_absolute;
-using move_lf_relative = lf_move_relative;
 
 // === fl_permutation ===
 template<typename data_columns_t = empty_data_columns,
@@ -181,44 +149,12 @@ using fl_permutation_separated_absolute = fl_permutation<data_columns_t, false, 
 template<typename data_columns_t, typename alphabet_t = nucleotide>
 using fl_permutation_integrated_absolute = fl_permutation<data_columns_t, true, true, alphabet_t>;
 
-// Alpha release aliases
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
-         bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using runperm_fl = fl_permutation<data_columns_t, integrated_move_structure, store_absolute_positions, alphabet_t>;
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
-         bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using RunPermFL = fl_permutation<data_columns_t, integrated_move_structure, store_absolute_positions, alphabet_t>;
-template<typename data_columns_t = empty_data_columns, typename alphabet_t = nucleotide>
-using runperm_fl_absolute = fl_permutation<data_columns_t, false, true, alphabet_t>;
-template<typename data_columns_t = empty_data_columns, typename alphabet_t = nucleotide>
-using runperm_fl_separated = fl_permutation<data_columns_t, false, false, alphabet_t>;
-template<typename data_columns_t, typename alphabet_t = nucleotide>
-using runperm_fl_integrated = fl_permutation<data_columns_t, true, false, alphabet_t>;
-template<typename data_columns_t, typename alphabet_t = nucleotide>
-using runperm_fl_separated_absolute = fl_permutation<data_columns_t, false, true, alphabet_t>;
-template<typename data_columns_t, typename alphabet_t = nucleotide>
-using runperm_fl_integrated_absolute = fl_permutation<data_columns_t, true, true, alphabet_t>;
-
 // === move_fl ===
 template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
          typename alphabet_t = nucleotide>
 using fl_move = fl_move_impl<store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, move_vector>;
 using fl_move_absolute = fl_move<true>;
 using fl_move_relative = fl_move<false>;
-
-// Alpha release aliases
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using move_fl = fl_move<store_absolute_positions, alphabet_t>;
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using MoveFL = fl_move<store_absolute_positions, alphabet_t>;
-using move_fl_absolute = fl_move_absolute;
-using move_fl_relative = fl_move_relative;
 
 // =============================== RLBWT Based Permutations for PHI/PHI_INV ===============================
 // === phi_permutation ===
@@ -234,23 +170,9 @@ using phi_permutation = phi_permutation_impl<data_columns_t, integrated_move_str
 template<typename data_columns_t = empty_data_columns>
 using phi_permutation_integrated = phi_permutation<data_columns_t, true>;
 
-// Alpha release aliases
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE>
-using runperm_phi = phi_permutation<data_columns_t, integrated_move_structure>;
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE>
-using RunPermPhi = phi_permutation<data_columns_t, integrated_move_structure>;
-template<typename data_columns_t = empty_data_columns>
-using runperm_phi_integrated = phi_permutation<data_columns_t, true>;
-
 // === phi_move ===
 // See above, but no user data.
 using phi_move = phi_move_impl<DEFAULT_EXPONENTIAL_SEARCH, move_vector>;
-
-// Alpha release aliases
-using move_phi = phi_move;
-using MovePhi = phi_move;
 
 // === phi_inv_permutation ===
 // Need to call rlbwt_to_phi_inv(rlbwt_heads, rlbwt_run_lengths) to get interval encoding
@@ -265,23 +187,9 @@ using phi_inv_permutation = phi_inv_permutation_impl<data_columns_t, integrated_
 template<typename data_columns_t = empty_data_columns>
 using phi_inv_permutation_integrated = phi_inv_permutation<data_columns_t, true>;
 
-// Alpha release aliases
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE>
-using runperm_phi_inv = phi_inv_permutation<data_columns_t, integrated_move_structure>;
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE>
-using RunPermPhiInv = phi_inv_permutation<data_columns_t, integrated_move_structure>;
-template<typename data_columns_t = empty_data_columns>
-using runperm_phi_inv_integrated = phi_inv_permutation<data_columns_t, true>;
-
 // === phi_inv_move ===
 // See above, but no user data.
 using phi_inv_move = phi_inv_move_impl<DEFAULT_EXPONENTIAL_SEARCH, move_vector>;
-
-// Alpha release aliases
-using move_phi_inv = phi_inv_move;
-using MovePhiInv = phi_inv_move;
 
 } // end namespace orbit::rlbwt
 

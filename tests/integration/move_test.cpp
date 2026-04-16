@@ -13,8 +13,8 @@ using std::vector;
 using namespace orbit;
 
 // Helper to compute global index for a relative MovePerm position.
-static ulint compute_idx_relative(const moveperm_relative &mp,
-                                  typename moveperm_relative::position pos) {
+static ulint compute_idx_relative(const move_permutation_relative &mp,
+                                  typename move_permutation_relative::position pos) {
     ulint idx = 0;
     for (ulint i = 0; i < pos.interval; ++i) {
         idx += mp.get_length(i);
@@ -23,9 +23,9 @@ static ulint compute_idx_relative(const moveperm_relative &mp,
     return idx;
 }
 
-static moveperm_relative::position make_pos_relative(const moveperm_relative &mp,
+static move_permutation_relative::position make_pos_relative(const move_permutation_relative &mp,
                                                     ulint idx) {
-    moveperm_relative::position pos{};
+    move_permutation_relative::position pos{};
     ulint prefix = 0;
     for (ulint interval = 0; interval < mp.intervals(); ++interval) {
         ulint len = mp.get_length(interval);
@@ -40,9 +40,9 @@ static moveperm_relative::position make_pos_relative(const moveperm_relative &mp
     return pos;
 }
 
-static moveperm_absolute::position make_pos_absolute(const moveperm_absolute &mp,
+static move_permutation_absolute::position make_pos_absolute(const move_permutation_absolute &mp,
                                                     ulint idx) {
-    moveperm_absolute::position pos{};
+    move_permutation_absolute::position pos{};
     pos.idx = idx;
     ulint prefix = 0;
     for (ulint interval = 0; interval < mp.intervals(); ++interval) {
@@ -64,7 +64,7 @@ static void integration_move_perm_relative_and_absolute() {
     const ulint domain = static_cast<ulint>(perm.size());
 
     // Relative constructor from full permutation.
-    moveperm_relative mp_rel(perm);
+    move_permutation_relative mp_rel(perm);
     assert(mp_rel.domain() == domain);
 
     for (ulint idx = 0; idx < domain; ++idx) {
@@ -76,7 +76,7 @@ static void integration_move_perm_relative_and_absolute() {
 
     // Absolute constructor from lengths + interval permutation.
     auto [lengths, interval_perm] = get_permutation_intervals(perm);
-    moveperm_absolute mp_abs(lengths, interval_perm);
+    move_permutation_absolute mp_abs(lengths, interval_perm);
     assert(mp_abs.domain() == domain);
 
     for (ulint idx = 0; idx < domain; ++idx) {
@@ -102,11 +102,11 @@ static void integration_move_perm_splitting_equivalence() {
         }
     }
 
-    moveperm_relative mp_no_split(lengths, interval_perm);
+    move_permutation_relative mp_no_split(lengths, interval_perm);
 
     split_params split;
     split.length_capping = 1.0;
-    moveperm_relative mp_split(lengths, interval_perm, split);
+    move_permutation_relative mp_split(lengths, interval_perm, split);
 
     assert(mp_no_split.domain() == domain);
     assert(mp_split.domain() == domain);

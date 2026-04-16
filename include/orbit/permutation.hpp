@@ -30,10 +30,6 @@
 //     absolute positions, enabling direct index lookups at extra space cost.
 //   - move_permutation_relative / move_permutation_absolute provide analogous choices for the
 //     move-only interface without run data.
-//   - runperm / runperm_separated / runperm_integrated / runperm_separated_absolute / runperm_integrated_absolute
-//     are alpha release aliases for permutation / permutation_separated / permutation_integrated / permutation_separated_absolute / permutation_integrated_absolute
-//   - moveperm / moveperm_absolute / moveperm_relative
-//     are alpha release aliases for move_permutation / move_permutation_absolute / move_permutation_relative
 //
 // See the README and tests under `tests/unit/perm/` and
 // `tests/integration/permutation_test.cpp` for concrete usage.
@@ -76,26 +72,6 @@ template<typename data_columns_t = empty_data_columns>
 using permutation_separated_absolute = permutation<data_columns_t, false, true>;
 template<typename data_columns_t = empty_data_columns>
 using permutation_integrated_absolute = permutation<data_columns_t, true, true>;
-
-// Alpha release aliases
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
-         bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS>
-using runperm = permutation<data_columns_t, integrated_move_structure, store_absolute_positions>;
-template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
-         bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS>
-using RunPerm = permutation<data_columns_t, integrated_move_structure, store_absolute_positions>;
-template<typename data_columns_t = empty_data_columns>
-using runperm_separated = permutation_separated<data_columns_t>;
-template<typename data_columns_t = empty_data_columns>
-using runperm_integrated = permutation_integrated<data_columns_t>;
-template<typename data_columns_t = empty_data_columns>
-using runperm_absolute = permutation_absolute<data_columns_t>;
-template<typename data_columns_t = empty_data_columns>
-using runperm_separated_absolute = permutation_separated_absolute<data_columns_t>;
-template<typename data_columns_t = empty_data_columns>
-using runperm_integrated_absolute = permutation_integrated_absolute<data_columns_t>;
 
 /* === Simplified interface for basic users, see full permutation_impl in include/internal/perm/permutation_impl.hpp for more template parameters ===
 *   template<typename data_columns_t,
@@ -178,14 +154,6 @@ using move_permutation = move_permutation_impl<store_absolute_positions>;
 // Basic types
 using move_permutation_absolute = move_permutation<true>;
 using move_permutation_relative = move_permutation<false>; // Same as move_permutation<>, the default
-
-// Alpha release aliases
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS>
-using moveperm = move_permutation<store_absolute_positions>;
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS>
-using MovePerm = move_permutation<store_absolute_positions>;
-using moveperm_absolute = move_permutation_absolute;
-using moveperm_relative = move_permutation_relative;
 
 } // namespace orbit
 

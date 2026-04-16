@@ -389,17 +389,20 @@ public:
     size_t serialize(std::ostream& os) {
         size_t written_bytes = 0;
 
+        os.write(MAGIC.data(), MAGIC.size());
+        written_bytes += MAGIC.size();
+        
         written_bytes += serialize_version(os);
         written_bytes += split_params_.serialize(os);
-
         written_bytes += move_structure.serialize(os);
         if constexpr (!integrated_move_structure) {
-            written_bytes += this->data_cols.serialize(os);
+            written_bytes += this->data_cols.serialize(os) + MAGIC.size();
         }
         return written_bytes;
     }
 
     void load(std::istream& is) {
+        check_magic(is, MAGIC);
         auto [serialized_major, serialized_minor, serialized_patch] = load_version(is);
         if (serialized_major != VERSION_MAJOR || serialized_minor != VERSION_MINOR || serialized_patch != VERSION_PATCH) {
             // TODO handle version mismatches
@@ -412,6 +415,9 @@ public:
     }
 
 protected:
+    // OrBit PermuTation
+    static constexpr std::array<char, MAGIC_BYTES> MAGIC = {'O', 'B', 'P', 'T'};
+
     move_structure_perm move_structure;
     split_params split_params_;
 

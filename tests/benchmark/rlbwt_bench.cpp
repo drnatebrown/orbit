@@ -255,10 +255,10 @@ void bench_move_phi(const string &name,
 
     auto t0 = high_resolution_clock::now();
     auto permutation = interval_encoding_impl<>::from_lengths_and_img_rank_inv(lengths, img_rank_inv, split_params);
-    move_phi move_phi(permutation);
+    phi_move move_phi(permutation);
     auto t1 = high_resolution_clock::now();
 
-    using position = typename move_phi::position;
+    using position = typename phi_move::position;
     vector<ulint> sa_recovered(sa_truth.size());
 
     position pos = move_phi.last();
@@ -339,10 +339,10 @@ void bench_move_phi_inv(const string &name,
 
     auto t0 = high_resolution_clock::now();
     auto permutation = interval_encoding_impl<>::from_lengths_and_img_rank_inv(lengths, img_rank_inv, split_params);
-    move_phi_inv move_phi_inv(permutation);
+    phi_inv_move move_phi_inv(permutation);
     auto t1 = high_resolution_clock::now();
 
-    using position = typename move_phi_inv::position;
+    using position = typename phi_inv_move::position;
     vector<ulint> sa_recovered(sa_truth.size());
 
     position pos = move_phi_inv.last();

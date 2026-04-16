@@ -69,6 +69,21 @@ inline constexpr uchar bit_width(ulint value) {
     return value == 0 ? 1 : 64 - __builtin_clzll(value);
 }
 
+static constexpr uint8_t MAGIC_BYTES = 4;
+
+inline size_t write_magic(std::ostream& os, const std::array<char, MAGIC_BYTES>& magic) {
+    os.write(magic.data(), magic.size());
+    return magic.size();
+}
+
+inline void check_magic(std::istream& is, const std::array<char, MAGIC_BYTES>& true_magic) {
+    std::array<char, MAGIC_BYTES> magic;
+    is.read(magic.data(), magic.size());
+    if (magic != true_magic) {
+        throw std::runtime_error("Serialized file is not a valid Orbit file; magic number mismatch");
+    }
+}
+
 // ENUM HELPERS ===============================================================
 // ENUM REPRESENTS COLUMNS, USE ENUM HELPERS TO ENFORCE STRUCTURE
 // in common.hpp (or an internal traits header

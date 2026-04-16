@@ -91,6 +91,9 @@ public:
     size_t serialize(std::ostream &out) {
         size_t written_bytes = 0;
 
+        written_bytes += write_magic(out, MAGIC);
+        written_bytes += serialize_version(out);
+
         out.write((char *)&num_rows, sizeof(num_rows));
         written_bytes += sizeof(num_rows);
 
@@ -112,6 +115,12 @@ public:
     }
 
     void load(std::istream &in) {
+        check_magic(in, MAGIC);
+        auto [serialized_major, serialized_minor, serialized_patch] = load_version(in);
+        if (serialized_major != VERSION_MAJOR || serialized_minor != VERSION_MINOR || serialized_patch != VERSION_PATCH) {
+            // TODO handle version mismatches
+        }
+
         in.read((char *)&num_rows, sizeof(num_rows));
         // Load column widths (may be zero columns)
         size_t widths_bytes = widths.size() * sizeof(uchar);
@@ -127,6 +136,9 @@ public:
     }
 
 private:
+    // OrBit Packed Mector
+    static constexpr std::array<char, MAGIC_BYTES> MAGIC = {'O', 'B', 'P', 'M'};
+
     size_t num_rows;
     size_t vector_width; // bit width of stored data (actual data size might be larger due to padding)
     size_t row_width; // width of each row in bits

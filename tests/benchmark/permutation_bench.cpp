@@ -105,13 +105,13 @@ std::optional<double> length_capping_factor = 4.0;
 
 template<typename RunData, typename RunPermType>
 std::string get_runperm_type_name() {
-    if constexpr (std::is_same_v<RunPermType, runperm<RunData, true, true>>) {
+    if constexpr (std::is_same_v<RunPermType, permutation<RunData, true, true>>) {
         return "RunPermIntegratedAbsolute";
-    } else if constexpr (std::is_same_v<RunPermType, runperm<RunData, true, false>>) {
+    } else if constexpr (std::is_same_v<RunPermType, permutation<RunData, true, false>>) {
         return "RunPermIntegratedRelative";
-    } else if constexpr (std::is_same_v<RunPermType, runperm<RunData, false, true>>) {
+    } else if constexpr (std::is_same_v<RunPermType, permutation<RunData, false, true>>) {
         return "RunPermSeperatedAbsolute";
-    } else if constexpr (std::is_same_v<RunPermType, runperm<RunData, false, false>>) {
+    } else if constexpr (std::is_same_v<RunPermType, permutation<RunData, false, false>>) {
         return "RunPermSeperatedRelative";
     } else {
         return "Unknown";
@@ -188,10 +188,10 @@ void run_benchmarks() {
 
             std::cout << "Testing n=" << n << ", r=" << r << " (n/r=" << n/r << "):" << std::endl;
 
-            bench_runperm<RunData, runperm<RunData, true, true>>(lengths, images, run_data, n);
-            bench_runperm<RunData, runperm<RunData, true, false>>(lengths, images, run_data, n);
-            bench_runperm<RunData, runperm<RunData, false, true>>(lengths, images, run_data, n);
-            bench_runperm<RunData, runperm<RunData, false, false>>(lengths, images, run_data, n);
+            bench_runperm<RunData, permutation<RunData, true, true>>(lengths, images, run_data, n);
+            bench_runperm<RunData, permutation<RunData, true, false>>(lengths, images, run_data, n);
+            bench_runperm<RunData, permutation<RunData, false, true>>(lengths, images, run_data, n);
+            bench_runperm<RunData, permutation<RunData, false, false>>(lengths, images, run_data, n);
 
             std::cout << std::endl;
         }

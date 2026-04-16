@@ -19,9 +19,9 @@ void test_move_lf_wrapper_equivalence() {
     vector<uchar> bwt_heads =       {'T','C','G','A','T', 1 ,'A','T','A'};
     vector<ulint> bwt_run_lengths = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
 
-    move_lf<> mlf(bwt_heads, bwt_run_lengths);
+    lf_move<> mlf(bwt_heads, bwt_run_lengths);
 
-    using position = typename move_lf<>::position;
+    using position = typename lf_move<>::position;
     position start = mlf.first();
 
     // Single-step LF must match next().
@@ -54,9 +54,9 @@ void test_runperm_lf_wrapper_equivalence() {
         run_data[i][0] = static_cast<ulint>(i);
     }
 
-    runperm_lf<RunCols> rp_lf(bwt_heads, bwt_run_lengths, run_data);
+    lf_permutation<RunCols> rp_lf(bwt_heads, bwt_run_lengths, run_data);
 
-    using position = typename runperm_lf<RunCols>::position;
+    using position = typename lf_permutation<RunCols>::position;
     position start = rp_lf.first();
 
     position lf1 = rp_lf.LF(start);
@@ -76,9 +76,9 @@ void test_move_fl_wrapper_equivalence() {
     vector<uchar> bwt_heads =       {'T','C','G','A','T', 1 ,'A','T','A'};
     vector<ulint> bwt_run_lengths = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
 
-    move_fl<> mfl(bwt_heads, bwt_run_lengths);
+    fl_move<> mfl(bwt_heads, bwt_run_lengths);
 
-    using position = typename move_fl<>::position;
+    using position = typename fl_move<>::position;
     position start = mfl.first();
 
     position fl1 = mfl.FL(start);
@@ -109,9 +109,9 @@ void test_runperm_fl_wrapper_equivalence() {
         run_data[i][0] = static_cast<ulint>(i * 2);
     }
 
-    runperm_fl<RunCols> rp_fl(bwt_heads, bwt_run_lengths, run_data);
+    fl_permutation<RunCols> rp_fl(bwt_heads, bwt_run_lengths, run_data);
 
-    using position = typename runperm_fl<RunCols>::position;
+    using position = typename fl_permutation<RunCols>::position;
     position start = rp_fl.first();
 
     position fl1 = rp_fl.FL(start);
@@ -131,8 +131,8 @@ void test_move_lf_pred_succ_char_basic() {
     vector<uchar> bwt_heads =       {'T','C','G','A','T', 1 ,'A','T','A'};
     vector<ulint> bwt_run_lengths = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
 
-    move_lf<> mlf(bwt_heads, bwt_run_lengths);
-    using position = typename move_lf<>::position;
+    lf_move<> mlf(bwt_heads, bwt_run_lengths);
+    using position = typename lf_move<>::position;
 
     // Same-character query returns the same position unchanged.
     position p_same{4, 0};
@@ -171,8 +171,8 @@ void test_move_lf_absolute_pred_succ_char_updates_idx() {
     vector<uchar> bwt_heads =       {'T','C','G','A','T', 1 ,'A','T','A'};
     vector<ulint> bwt_run_lengths = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
 
-    move_lf<true> move_lf_abs(bwt_heads, bwt_run_lengths);
-    using position = typename move_lf<true>::position;
+    lf_move<true> move_lf_abs(bwt_heads, bwt_run_lengths);
+    using position = typename lf_move<true>::position;
 
     position from_t{4, 0, 14};
     auto pred_a = move_lf_abs.pred_char(from_t, static_cast<uchar>('A'));
@@ -202,8 +202,8 @@ void test_runperm_lf_pred_succ_char_basic() {
         run_data[i][0] = static_cast<ulint>(10 + i);
     }
 
-    runperm_lf<RunCols> rp_lf(bwt_heads, bwt_run_lengths, run_data);
-    using position = typename runperm_lf<RunCols>::position;
+    lf_permutation<RunCols> rp_lf(bwt_heads, bwt_run_lengths, run_data);
+    using position = typename lf_permutation<RunCols>::position;
 
     position from_t{4, 0};
     auto pred_a = rp_lf.pred_char(from_t, static_cast<uchar>('A'));
@@ -227,7 +227,7 @@ void test_runpermlf_construct_from_precomputed_permutation_no_splitting() {
         V,
         COUNT
     };
-    using RP = runperm_lf<RunCols>;
+    using RP = lf_permutation<RunCols>;
     using RunData = typename RP::data_tuple;
 
     vector<RunData> run_data(perm.intervals());
@@ -270,7 +270,7 @@ void test_runpermlf_construct_from_precomputed_permutation_with_splitting() {
         V,
         COUNT
     };
-    using RP = runperm_lf<RunCols>;
+    using RP = lf_permutation<RunCols>;
     using RunData = typename RP::data_tuple;
 
     vector<RunData> run_data_per_run(perm.runs());

@@ -14,8 +14,8 @@ using std::vector;
 using namespace orbit;
 
 // Helper to compute the global index for a relative MovePerm position.
-static ulint compute_idx_relative(const moveperm_relative &mp,
-                                  typename moveperm_relative::position pos) {
+static ulint compute_idx_relative(const move_permutation_relative &mp,
+                                  typename move_permutation_relative::position pos) {
     ulint idx = 0;
     for (ulint i = 0; i < pos.interval; ++i) {
         idx += mp.get_length(i);
@@ -25,9 +25,9 @@ static ulint compute_idx_relative(const moveperm_relative &mp,
 }
 
 // Helper to build a relative position from a global index.
-static moveperm_relative::position make_pos_relative(const moveperm_relative &mp,
+static move_permutation_relative::position make_pos_relative(const move_permutation_relative &mp,
                                                     ulint idx) {
-    moveperm_relative::position pos{};
+    move_permutation_relative::position pos{};
     ulint prefix = 0;
     for (ulint interval = 0; interval < mp.runs(); ++interval) {
         ulint len = mp.get_length(interval);
@@ -43,9 +43,9 @@ static moveperm_relative::position make_pos_relative(const moveperm_relative &mp
 }
 
 // Helper to build an absolute position from a global index.
-static moveperm_absolute::position make_pos_absolute(const moveperm_absolute &mp,
+static move_permutation_absolute::position make_pos_absolute(const move_permutation_absolute &mp,
                                                     ulint idx) {
-    moveperm_absolute::position pos{};
+    move_permutation_absolute::position pos{};
     pos.idx = idx;
     ulint prefix = 0;
     for (ulint interval = 0; interval < mp.runs(); ++interval) {
@@ -65,7 +65,7 @@ static void test_move_perm_relative_from_permutation() {
     // Simple permutation with several runs of contiguous values.
     vector<ulint> perm = {1, 2, 9, 10, 11, 3, 12, 13, 4, 5, 14, 0, 15, 6, 7, 8};
 
-    moveperm_relative mp(perm);
+    move_permutation_relative mp(perm);
     assert(mp.domain() == perm.size());
 
     for (ulint idx = 0; idx < mp.domain(); ++idx) {
@@ -82,7 +82,7 @@ static void test_move_perm_absolute_from_lengths() {
 
     auto [lengths, interval_perm] = get_permutation_intervals(perm);
 
-    moveperm_absolute mp(lengths, interval_perm);
+    move_permutation_absolute mp(lengths, interval_perm);
     assert(mp.domain() == domain);
     assert(mp.runs() == lengths.size());
 
@@ -99,11 +99,11 @@ static void test_move_perm_relative_splitting_preserves_permutation() {
     vector<ulint> perm = {4, 5, 6, 7, 0, 1, 2, 3};
     const ulint domain = static_cast<ulint>(perm.size());
 
-    moveperm_relative mp_no_split(perm);
+    move_permutation_relative mp_no_split(perm);
 
     split_params split;
     split.length_capping = 1.0; // Strong capping to force splitting if beneficial.
-    moveperm_relative mp_split(perm, split);
+    move_permutation_relative mp_split(perm, split);
 
     assert(mp_no_split.domain() == domain);
     assert(mp_split.domain() == domain);
@@ -128,13 +128,13 @@ static void test_move_perm_serialize_roundtrip_absolute() {
     const ulint domain = static_cast<ulint>(perm.size());
     auto [lengths, interval_perm] = get_permutation_intervals(perm);
 
-    moveperm_absolute mp(lengths, interval_perm);
+    move_permutation_absolute mp(lengths, interval_perm);
 
     std::stringstream ss;
     size_t bytes = mp.serialize(ss);
     assert(bytes > 0);
 
-    moveperm_absolute loaded;
+    move_permutation_absolute loaded;
     loaded.load(ss);
 
     assert(loaded.domain() == mp.domain());
@@ -152,7 +152,7 @@ static void test_move_perm_next_with_steps() {
     vector<ulint> perm = {1, 2, 0, 4, 3};
     const ulint domain = static_cast<ulint>(perm.size());
 
-    moveperm_relative mp_rel(perm);
+    move_permutation_relative mp_rel(perm);
 
     for (ulint idx = 0; idx < domain; ++idx) {
         auto pos = make_pos_relative(mp_rel, idx);

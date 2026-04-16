@@ -185,6 +185,9 @@ public:
     size_t serialize(std::ostream &out) {
         size_t written_bytes = 0;
 
+        written_bytes += write_magic(out, MAGIC);
+        written_bytes += serialize_version(out);
+
         out.write((char *)&n, sizeof(n));
         written_bytes += sizeof(n);
 
@@ -200,6 +203,12 @@ public:
     {
         size_t size;
 
+        check_magic(in, MAGIC);
+        auto [serialized_major, serialized_minor, serialized_patch] = load_version(in);
+        if (serialized_major != VERSION_MAJOR || serialized_minor != VERSION_MINOR || serialized_patch != VERSION_PATCH) {
+            // TODO handle version mismatches
+        }
+
         in.read((char *)&n, sizeof(n));
         in.read((char *)&r, sizeof(r));
 
@@ -207,6 +216,9 @@ public:
     }
 
 protected:
+    // OrBit Move Structure
+    static constexpr std::array<char, MAGIC_BYTES> MAGIC = {'O', 'B', 'M', 'S'};
+
     table_t<columns_t> table;
     ulint n;
     ulint r;

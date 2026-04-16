@@ -73,11 +73,11 @@ void test_runperm_phi_phi_inv_wrapper_equivalence() {
         run_data_inv[i][0] = static_cast<ulint>(i * 2);
     }
 
-    runperm_phi<RunCols> rp_phi(phi_lengths, phi_perm, run_data_phi);
-    runperm_phi_inv<RunCols> rp_inv(inv_lengths, inv_perm, run_data_inv);
+    phi_permutation<RunCols> rp_phi(phi_lengths, phi_perm, run_data_phi);
+    phi_inv_permutation<RunCols> rp_inv(inv_lengths, inv_perm, run_data_inv);
 
-    using PosPhi = typename runperm_phi<RunCols>::position;
-    using PosInv = typename runperm_phi_inv<RunCols>::position;
+    using PosPhi = typename phi_permutation<RunCols>::position;
+    using PosInv = typename phi_inv_permutation<RunCols>::position;
 
     PosPhi p0 = rp_phi.first();
     PosPhi phi1 = rp_phi.phi(p0);

@@ -41,8 +41,8 @@ void test_rlbwt_api() {
     vector<ulint> run_lengths = {2, 1, 2};
 
     // Exercise MoveLF / MoveFL default aliases.
-    move_lf<> move_lf(heads, run_lengths);
-    move_fl<> move_fl(heads, run_lengths);
+    lf_move<> move_lf(heads, run_lengths);
+    fl_move<> move_fl(heads, run_lengths);
 
     assert(move_lf.domain() == 5);
     assert(move_fl.domain() == 5);
@@ -58,12 +58,12 @@ void test_rlbwt_api() {
         run_data[i][0] = static_cast<ulint>(i);
     }
 
-    runperm_lf<run_cols> rp_lf(heads, run_lengths, run_data);
-    runperm_fl<run_cols> rp_fl(heads, run_lengths, run_data);
+    lf_permutation<run_cols> rp_lf(heads, run_lengths, run_data);
+    fl_permutation<run_cols> rp_fl(heads, run_lengths, run_data);
 
     // Touch a couple of simple methods to ensure the API is usable.
-    using PosLF = typename runperm_lf<run_cols>::position;
-    using PosFL = typename runperm_fl<run_cols>::position;
+    using PosLF = typename lf_permutation<run_cols>::position;
+    using PosFL = typename fl_permutation<run_cols>::position;
 
     PosLF pos_lf = rp_lf.first();
     PosFL pos_fl = rp_fl.first();
@@ -96,8 +96,8 @@ void test_runperm_header_is_available() {
         COUNT
     };
 
-    using rp_separated = runperm_separated<test_cols>;
-    using rp_integrated_absolute = runperm_integrated_absolute<test_cols>;
+    using rp_separated = permutation_separated<test_cols>;
+    using rp_integrated_absolute = permutation_integrated_absolute<test_cols>;
 
     const vector<ulint> lengths = {3};
     const vector<ulint> interval_perm = {0};

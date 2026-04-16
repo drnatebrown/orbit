@@ -14,9 +14,9 @@ using namespace orbit;
 using namespace orbit::rlbwt;
 
 void test_move_lf(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_lengths, std::string text) {
-    move_lf<> mlf(bwt_heads, bwt_run_lengths);
+    lf_move<> mlf(bwt_heads, bwt_run_lengths);
 
-    using position = typename move_lf<>::position;
+    using position = typename lf_move<>::position;
     auto pos = mlf.first();
     for (size_t i = 0; i < mlf.domain(); ++i) {
         pos = mlf.next(pos);
@@ -34,9 +34,9 @@ void test_move_lf(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_lengt
 }
 
 void test_move_lf_with_splitting(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_lengths, std::string text) {
-    move_lf<> mlf(bwt_heads, bwt_run_lengths, DEFAULT_SPLITTING);
+    lf_move<> mlf(bwt_heads, bwt_run_lengths, DEFAULT_SPLITTING);
 
-    using position = typename move_lf<>::position;
+    using position = typename lf_move<>::position;
     auto pos = mlf.first();
     for (size_t i = 0; i < mlf.domain(); ++i) {
         pos = mlf.next(pos);
@@ -54,16 +54,16 @@ void test_move_lf_with_splitting(std::vector<uchar> bwt_heads, std::vector<ulint
 }
 
 void test_move_lf_serialize_roundtrip(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_lengths, std::string text) {
-    move_lf<> move_lf_obj(bwt_heads, bwt_run_lengths);
+    lf_move<> move_lf_obj(bwt_heads, bwt_run_lengths);
 
     std::stringstream ss;
     size_t bytes = move_lf_obj.serialize(ss);
     assert(bytes > 0);
 
-    move_lf<> loaded;
+    lf_move<> loaded;
     loaded.load(ss);
 
-    using position = typename move_lf<>::position;
+    using position = typename lf_move<>::position;
     auto pos = loaded.first();
     for (size_t i = 0; i < loaded.domain(); ++i) {
         pos = loaded.next(pos);
@@ -81,9 +81,9 @@ void test_move_lf_serialize_roundtrip(std::vector<uchar> bwt_heads, std::vector<
 }
 
 void test_move_fl(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_lengths, std::string text) {
-    move_fl<> mfl(bwt_heads, bwt_run_lengths);
+    fl_move<> mfl(bwt_heads, bwt_run_lengths);
 
-    using position = typename move_fl<>::position;
+    using position = typename fl_move<>::position;
     position pos = mfl.first();
     for (size_t i = 0; i < mfl.domain(); ++i) {
         pos = mfl.next(pos);
@@ -119,11 +119,11 @@ void test_runperm_lf(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_le
     }
     
     // Try the constructor without SplitParams
-    runperm_lf<RunData> rp_lf(bwt_heads, bwt_run_lengths, run_data);
+    lf_permutation<RunData> rp_lf(bwt_heads, bwt_run_lengths, run_data);
     
                 
     rp_lf.first();
-    using position = typename runperm_lf<RunData>::position;
+    using position = typename lf_permutation<RunData>::position;
     position pos = rp_lf.first();
     
     for (size_t i = 0; i < rp_lf.domain(); ++i) {
@@ -159,11 +159,11 @@ void test_runperm_lf_with_splitting(std::vector<uchar> bwt_heads, std::vector<ul
     }
     
     // Try the constructor with SplitParams that enable splitting
-    runperm_lf<RunData> rp_lf(bwt_heads, bwt_run_lengths, DEFAULT_SPLITTING, run_data);
+    lf_permutation<RunData> rp_lf(bwt_heads, bwt_run_lengths, DEFAULT_SPLITTING, run_data);
     
                 
     rp_lf.first();
-    using position = typename runperm_lf<RunData>::position;
+    using position = typename lf_permutation<RunData>::position;
     position pos = rp_lf.first();
     
     for (size_t i = 0; i < rp_lf.domain(); ++i) {
@@ -198,16 +198,16 @@ void test_runperm_lf_serialize_roundtrip(std::vector<uchar> bwt_heads, std::vect
         run_data[i][1] = i * 5;   // Another dummy value
     }
     
-    runperm_lf<RunData> runperm_lf_obj(bwt_heads, bwt_run_lengths, run_data);
+    lf_permutation<RunData> runperm_lf_obj(bwt_heads, bwt_run_lengths, run_data);
 
     std::stringstream ss;
     size_t bytes = runperm_lf_obj.serialize(ss);
     assert(bytes > 0);
 
-    runperm_lf<RunData> loaded;
+    lf_permutation<RunData> loaded;
         loaded.load(ss);
     
-    using position = typename runperm_lf<RunData>::position;
+    using position = typename lf_permutation<RunData>::position;
     position pos = loaded.first();
     
     for (size_t i = 0; i < loaded.domain(); ++i) {
@@ -243,10 +243,10 @@ void test_runperm_fl(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_le
     }
     
     // Try the constructor without SplitParams
-    runperm_fl<RunData> rp_fl(bwt_heads, bwt_run_lengths, run_data);
+    fl_permutation<RunData> rp_fl(bwt_heads, bwt_run_lengths, run_data);
     
                 
-    using position = typename runperm_fl<RunData>::position;
+    using position = typename fl_permutation<RunData>::position;
     position pos = rp_fl.first();
     
     for (size_t i = 0; i < rp_fl.domain(); ++i) {
@@ -266,9 +266,9 @@ void test_runperm_fl(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_le
 }
 
 void test_move_fl_with_splitting(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_lengths, std::string text) {
-    move_fl<> mfl(bwt_heads, bwt_run_lengths, DEFAULT_SPLITTING);
+    fl_move<> mfl(bwt_heads, bwt_run_lengths, DEFAULT_SPLITTING);
 
-    using position = typename move_fl<>::position;
+    using position = typename fl_move<>::position;
     position pos = mfl.first();
     for (size_t i = 0; i < mfl.domain(); ++i) {
         pos = mfl.next(pos);
@@ -303,10 +303,10 @@ void test_runperm_fl_with_splitting(std::vector<uchar> bwt_heads, std::vector<ul
         run_data[i][1] = i * 3;   // Another dummy value
     }
     
-    runperm_fl<RunData> rp_fl(bwt_heads, bwt_run_lengths, DEFAULT_SPLITTING, run_data);
+    fl_permutation<RunData> rp_fl(bwt_heads, bwt_run_lengths, DEFAULT_SPLITTING, run_data);
     
                 
-    using position = typename runperm_fl<RunData>::position;
+    using position = typename fl_permutation<RunData>::position;
     position pos = rp_fl.first();
     
     for (size_t i = 0; i < rp_fl.domain(); ++i) {
@@ -345,9 +345,9 @@ void test_runperm_phi(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_l
     size_t phi_domain;
     ulint max_length;
     auto [phi_lengths, phi_images] = rlbwt_to_phi_images(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
-    runperm_phi<RunData> runperm_phi_obj(phi_lengths, phi_images, run_data);
+    phi_permutation<RunData> runperm_phi_obj(phi_lengths, phi_images, run_data);
             
-    using position = typename runperm_phi<RunData>::position;
+    using position = typename phi_permutation<RunData>::position;
     position pos = runperm_phi_obj.first();
     for (size_t i = 0; i < runperm_phi_obj.domain(); ++i) {
         pos = runperm_phi_obj.next(pos);
@@ -371,8 +371,8 @@ void test_move_phi_with_splitting(std::vector<uchar> bwt_heads, std::vector<ulin
     size_t phi_domain;
     ulint max_length;
     auto [phi_lengths, phi_images] = rlbwt_to_phi_images(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
-    move_phi move_phi_obj(phi_lengths, phi_images, DEFAULT_SPLITTING);
-    using position = typename move_phi::position;
+    phi_move move_phi_obj(phi_lengths, phi_images, DEFAULT_SPLITTING);
+    using position = typename phi_move::position;
     position pos = move_phi_obj.first();
     for (size_t i = 0; i < move_phi_obj.domain(); ++i) {
         pos = move_phi_obj.next(pos);
@@ -396,8 +396,8 @@ void test_move_phi(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_leng
     size_t phi_domain;
     ulint max_length;
     auto [phi_lengths, phi_images] = rlbwt_to_phi_images(bwt_heads, bwt_run_lengths, &phi_domain, &max_length);
-    move_phi move_phi_obj(phi_lengths, phi_images);
-    using position = typename move_phi::position;
+    phi_move move_phi_obj(phi_lengths, phi_images);
+    using position = typename phi_move::position;
     position pos = move_phi_obj.first();
     for (size_t i = 0; i < move_phi_obj.domain(); ++i) {
         pos = move_phi_obj.next(pos);
@@ -437,10 +437,10 @@ void test_runperm_phi_inv(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_r
     size_t inv_domain;
     ulint max_length_inv;
     auto [phi_inv_lengths, phi_inv_images] = rlbwt_to_phi_inv_images(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
-    runperm_phi_inv<RunData> runperm_phi_inv_obj(phi_inv_lengths, phi_inv_images, run_data);
+    phi_inv_permutation<RunData> runperm_phi_inv_obj(phi_inv_lengths, phi_inv_images, run_data);
             
     runperm_phi_inv_obj.first();
-    using position = typename runperm_phi_inv<RunData>::position;
+    using position = typename phi_inv_permutation<RunData>::position;
     position pos = runperm_phi_inv_obj.first();
     for (size_t i = 0; i < runperm_phi_inv_obj.domain(); ++i) {
         pos = runperm_phi_inv_obj.next(pos);
@@ -463,8 +463,8 @@ void test_move_phi_inv(std::vector<uchar> bwt_heads, std::vector<ulint> bwt_run_
     size_t inv_domain;
     ulint max_length_inv;
     auto [phi_inv_lengths, phi_inv_images] = rlbwt_to_phi_inv_images(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
-    move_phi_inv move_phi_inv_obj(phi_inv_lengths, phi_inv_images);
-    using position = typename move_phi_inv::position;
+    phi_inv_move move_phi_inv_obj(phi_inv_lengths, phi_inv_images);
+    using position = typename phi_inv_move::position;
     position pos = move_phi_inv_obj.first();
     for (size_t i = 0; i < move_phi_inv_obj.domain(); ++i) {
         pos = move_phi_inv_obj.next(pos);
@@ -487,8 +487,8 @@ void test_move_phi_inv_with_splitting(std::vector<uchar> bwt_heads, std::vector<
     size_t inv_domain;
     ulint max_length_inv;
     auto [phi_inv_lengths, phi_inv_images] = rlbwt_to_phi_inv_images(bwt_heads, bwt_run_lengths, &inv_domain, &max_length_inv);
-    move_phi_inv move_phi_inv_obj(phi_inv_lengths, phi_inv_images, DEFAULT_SPLITTING);
-    using position = typename move_phi_inv::position;
+    phi_inv_move move_phi_inv_obj(phi_inv_lengths, phi_inv_images, DEFAULT_SPLITTING);
+    using position = typename phi_inv_move::position;
     position pos = move_phi_inv_obj.first();
     for (size_t i = 0; i < move_phi_inv_obj.domain(); ++i) {
         pos = move_phi_inv_obj.next(pos);
