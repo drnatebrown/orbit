@@ -48,7 +48,7 @@ Orbit provides compact representations of run-length encoded permutations, with 
 - **Move Structures**: Advanced data structures for fast and cache efficient navigation of runny permutations.
 - **Compact Representation**: Bitpacked, using the minimum fixed width per move structure column and user defined data columns.
 - **Advanced Storage** Allows efficient storage and retrieval of additional information which can be bitpacked alongside the permutation for cache efficiency.
-- **Splitting Schemes**: Optimization schemes for length capping and balancing providing faster and smaller move structures, running in $O(r)$-time and space.
+- **Splitting Schemes**: Optimization schemes for length capping and balancing providing faster and smaller move structures, running in optimal $O(r)$-time and space.
 - **RLBWT Specializations**:
   - LF/FL navigation with character access, constructed in $O(r)$-time and space from RLBWT.
   - $\phi$ / $\phi^{-1}$ navigation with SA retrieval.
@@ -188,7 +188,7 @@ The public API simplifies template parameters and methods, see the internal impl
   - **Absolute**: $r \log r + 2 r \log n$ bits
   - **Relative**: $r \log r + 2 r \log \frac{n}{r}$ bits
 - **Length Capping**: Can greatly reduce the size of the data structure, especially for relative positions. Also gives amortized guarantees and practical speed up when tuned correctly. Where length capping factor is $c$, splits any runs/intervals longer than $c$ times the average run length of the original permutation. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2602.11029)). Where default splitting parameters are used, $c$ is set to 8.
-- **Balancing**: Where $\alpha$ is the balancing factor, guarantees less than $2\alpha$ complexity for a single permutation step. However, can increase the size of the data structures due to splitting intervals. Length capping and balancing often work well together. Takes $O(r)$-time and space ([see here](https://arxiv.org/abs/2603.22147)). Where default splitting parameters are used, $\alpha$ is set to 16.
+- **Balancing**: Where $\alpha$ is the balancing factor, guarantees less than $2\alpha$ complexity for a single permutation step. However, can increase the size of the data structures due to splitting intervals. Length capping and balancing often work well together. This implements the first $O(r)$-time and space algorithm ([see here](https://arxiv.org/abs/2603.22147)). Where default splitting parameters are used, $\alpha$ is set to 16.
 
 ## Advanced Usage
 
@@ -318,4 +318,9 @@ orbit::permutation rlbwt(bwt_run_lengths, lf_images, bwt_heads);
 
 If using Orbit or describing length capping in an academic context, please cite:
 
-> Brown, N. K., & Langmead, B. (2026). Bounding the Average Move Structure Query for Faster and Smaller RLBWT Permutations. arXiv. [doi:10.1101/2024.10.29.620953](https://arxiv.org/abs/2602.11029)
+> Brown, N. K., & Langmead, B. (2026). Bounding the Average Move Structure Query for Faster and Smaller RLBWT Permutations. arXiv. [doi.org/10.48550/2602.11029](https://arxiv.org/abs/2602.11029)
+
+If you rely on Orbit for, or describe, optimal-time move structure construction or balancing, please cite:
+
+> Brown, N.K., Sanaullah, A., Zhang, S., & Langmead, B. (2026). Optimal-Time Move Structure Construction. arXiv. [doi.org/10.48550/2603.22147](https://arxiv.org/abs/2603.22147)
+
