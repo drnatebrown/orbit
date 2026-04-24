@@ -297,7 +297,7 @@ pos = perm.up(pos); // Move up to the previous interval
 
 pos.interval; // Current interval containing position
 pos.offset; // Offset within that interval
-pos.idx; // If using absolute positions (see below) the actual position in [0, n)
+pos.idx; // If using absolute positions (see performance considerations) the actual position in [0, n)
 
 // Largest position less than or equal to this position containing val in column VAL_1
 auto pred_pos = perm.pred<data_columns::VAL_1>(pos, val);
