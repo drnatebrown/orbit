@@ -17,8 +17,6 @@ Consider this runny permutation example:
 
 We pass the lengths of contiguously permuted intervals ($S_\ell$) and the permutation of their first values (images, $S_\pi$):
 ```cpp
-#include "orbit/permutation.hpp"
-
 // Create a run-length permutation
 // Length of contiguously permuted intervals
 std::vector<unsigned long int> lengths = {2, 3, 1,  2, 2,  1, 1,  1, 3};
@@ -28,6 +26,8 @@ std::vector<unsigned long int> images  = {1, 9, 3, 12, 4, 14, 0, 15, 6};
 
 These can be used to build a permutation object, which permits efficient navigation:
 ```cpp
+#include "orbit/permutation.hpp"
+
 orbit::permutation perm(lengths, images);
 auto pos = perm.first();
 pos = perm.next(pos);
@@ -76,11 +76,11 @@ The provided `makefile` only builds example/test executables:
 
 #### Permutation
 
-See quick start above! Included with `orbit/permutation.hpp` where further documentation is found. Some small examples are given in the provided `examples/example.cpp` file.
+See quick start above! Included with `orbit/permutation.hpp` where further documentation is found. Some small examples are given in the provided `examples/example.cpp` file. Although the example passed the run-length encoded permutation, the `orbit::permutation` class can also accept the raw permutation $\pi[0..n-1]$ itself.
 
 #### Data Columns
 
-We can also define the number of columns of additional data to store alongside the permutation intervals. This is made easier with a macro:
+We can also define a number of columns of additional data to store alongside the permutation intervals. This is made easier with a macro:
 
 ```cpp
 DEFINE_ORBIT_COLUMNS(data_cols, VAL1, VAL2)
@@ -109,11 +109,10 @@ std::vector<data_tuple> run_data(lengths.size());
 Given this information, we pass the user defined run columns to construct a runny permutation:
 
 ```cpp
-orbit::permutation<data_cols> meta_perm(lengths, permutation, run_data);
+orbit::permutation<data_cols> meta_perm(lengths, images, run_data);
 ```
 
 Finally, we use the position object to navigate the permutation and access data:
-
 ```cpp
 using position = typename orbit::permutation<data_cols>::position
 position pos = meta_perm.first(); // start from 0
@@ -124,7 +123,7 @@ unsigned long int other_data = meta_perm.get<data_cols::VAL2>(pos);
 
 #### RLBWT: LF/FL
 
-By including `orbit/rlbwt.hpp` users can use specialized methods designed for permutations based on the RLBWT such as LF/FL for pattern matching and text extraction.
+By including `orbit/rlbwt.hpp` users can use specialized methods designed for permutations based on the RLBWT such as LF/FL for pattern matching and text extraction. The library can also first parse a BWT into its RLBWT.
 
 ```cpp
 #include "orbit/rlbwt.hpp"
@@ -239,6 +238,9 @@ for(size_t i = 0; i < enc.intervals(); ++i) {
 orbit::permutation perm(enc, data);
 ```
 
+#### Template Parameters
+Many of the library classes expose a simplified interface, including only the template parameters described above. More advanced template parameters can be accessed by loading the specific implementation of a class from the `orbit/include/internal` filetree. For example, `orbit::permutation_impl` exposes parameters that turn on an exponential search for navigation steps instead of the default linear scan or allows modification of the bitpacking scheme and underlying layout of the move structure data. These specific options are likely to be of interest to an academic community, but not for those looking only for a practical library.
+
 ## Examples
 
 ### Basic Permutation Navigation
@@ -252,8 +254,8 @@ orbit::permutation<data_columns> perm(lengths, images);
 auto pos = perm.first();
 pos = perm.next(pos); // One permutation step
 pos = perm.next(pos, 5); // Five permutation steps
-pos = perm.down(pos); // Move down one position
-pos = perm.up(pos); // Move up one position
+pos = perm.down(pos); // Move down to the next interval
+pos = perm.up(pos); // Move up to the previous interval
 
 pos.interval; // Current interval containing position
 pos.offset; // Offset within that interval
