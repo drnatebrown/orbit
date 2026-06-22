@@ -1,4 +1,5 @@
-# Orbit
+<img width="577" height="192" alt="Image" src="https://github.com/user-attachments/assets/26faa665-195e-4532-8924-c72c149a7682" />
+
 ![GitHub release](https://img.shields.io/github/v/release/drnatebrown/orbit)
 
 $O(r)$-space bitpacked (Orbit) move structures for runny permutations! 
