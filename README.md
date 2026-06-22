@@ -1,4 +1,4 @@
-<img width="577" height="192" alt="Image" src="https://github.com/user-attachments/assets/26faa665-195e-4532-8924-c72c149a7682" />
+<img width="955" height="331" alt="Image" src="https://github.com/user-attachments/assets/6b37c3d0-663e-46ea-9408-e32cc17679a8" />
 
 ![GitHub release](https://img.shields.io/github/v/release/drnatebrown/orbit)
 
