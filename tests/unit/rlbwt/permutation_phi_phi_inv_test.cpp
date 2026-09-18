@@ -182,12 +182,82 @@ void test_phi_and_phi_inv_img_rank_inv_equivalence() {
     }
 }
 
+void test_sa_samples_to_phi_starts_images_matches_rlbwt() {
+    vector<uchar> bwt_heads =       {'T','C','G','A','T', 1 ,'A','T','A'};
+    vector<ulint> bwt_run_lengths = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
+    vector<ulint> sa = {26, 12, 4, 21, 16, 14, 6, 23, 9, 1, 18, 13, 5, 22,
+                       8, 0, 17, 25, 11, 3, 20, 15, 7, 24, 10, 2, 19};
+
+    vector<ulint> sa_heads(bwt_run_lengths.size());
+    vector<ulint> sa_tails(bwt_run_lengths.size());
+    size_t bwt_idx = 0;
+    for (size_t run = 0; run < bwt_run_lengths.size(); ++run) {
+        sa_heads[run] = sa[bwt_idx];
+        bwt_idx += bwt_run_lengths[run];
+        sa_tails[run] = sa[bwt_idx - 1];
+    }
+
+    size_t expected_domain;
+    ulint max_length;
+    auto [expected_lengths, expected_images] =
+        rlbwt_to_phi_images(bwt_heads, bwt_run_lengths, &expected_domain, &max_length);
+    auto [starts, images, domain] =
+        sa_samples_to_phi_starts_images(sa_heads, sa_tails);
+
+    assert(domain == expected_domain);
+    assert(starts.size() == expected_lengths.size());
+    assert(images.size() == expected_images.size());
+    ulint expected_start = 0;
+    for (size_t i = 0; i < starts.size(); ++i) {
+        assert(starts[i] == expected_start);
+        assert(images[i] == expected_images[i]);
+        expected_start += expected_lengths[i];
+    }
+    assert(expected_start == expected_domain);
+}
+
+void test_sa_samples_to_phi_inv_starts_images_matches_rlbwt() {
+    vector<uchar> bwt_heads =       {'T','C','G','A','T', 1 ,'A','T','A'};
+    vector<ulint> bwt_run_lengths = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
+    vector<ulint> sa = {26, 12, 4, 21, 16, 14, 6, 23, 9, 1, 18, 13, 5, 22,
+                       8, 0, 17, 25, 11, 3, 20, 15, 7, 24, 10, 2, 19};
+
+    vector<ulint> sa_heads(bwt_run_lengths.size());
+    vector<ulint> sa_tails(bwt_run_lengths.size());
+    size_t bwt_idx = 0;
+    for (size_t run = 0; run < bwt_run_lengths.size(); ++run) {
+        sa_heads[run] = sa[bwt_idx];
+        bwt_idx += bwt_run_lengths[run];
+        sa_tails[run] = sa[bwt_idx - 1];
+    }
+
+    size_t expected_domain;
+    ulint max_length;
+    auto [expected_lengths, expected_images] =
+        rlbwt_to_phi_inv_images(bwt_heads, bwt_run_lengths, &expected_domain, &max_length);
+    auto [starts, images, domain] =
+        sa_samples_to_phi_inv_starts_images(sa_heads, sa_tails);
+
+    assert(domain == expected_domain);
+    assert(starts.size() == expected_lengths.size());
+    assert(images.size() == expected_images.size());
+    ulint expected_start = 0;
+    for (size_t i = 0; i < starts.size(); ++i) {
+        assert(starts[i] == expected_start);
+        assert(images[i] == expected_images[i]);
+        expected_start += expected_lengths[i];
+    }
+    assert(expected_start == expected_domain);
+}
+
 int main() {
     test_phi_phi_inv_structure_on_small_rlbwt();
     test_runperm_phi_phi_inv_wrapper_equivalence();
     test_runperm_phi_inv_img_rank_inv_wrapper_equivalence();
     test_runperm_phi_img_rank_inv_wrapper_equivalence();
     test_phi_and_phi_inv_img_rank_inv_equivalence();
+    test_sa_samples_to_phi_starts_images_matches_rlbwt();
+    test_sa_samples_to_phi_inv_starts_images_matches_rlbwt();
 
     std::cout << "permutation_phi_phi_inv unit tests passed" << std::endl;
     return 0;
