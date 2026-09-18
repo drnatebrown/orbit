@@ -427,7 +427,12 @@ protected:
 
     template<typename interval_encoding_impl_t>
     void build_from_interval_encoding(const interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data) {
-        static_assert(interval_encoding_impl_t::invertible_tag == cols_traits::INVERTIBLE, "Invertible type mismatch");
+        // Plain permutations may take an invertible encoding (e.g. after
+        // union splitting); invertible permutations still require one.
+        static_assert(!cols_traits::INVERTIBLE ||
+                          interval_encoding_impl_t::invertible_tag,
+                      "Invertible permutation requires an invertible "
+                      "interval encoding");
         split_params_ = enc.get_split_params();
         packed_vector<base_columns> base_structure = move_structure_base::find_structure(enc);
         if (run_data.size() == enc.intervals()) {
@@ -449,7 +454,10 @@ protected:
 
     template<typename container1_t, typename interval_encoding_impl_t>
     void build_from_interval_encoding_callback(const interval_encoding_impl_t& enc, const container1_t &lengths, const std::vector<data_tuple>* run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data) {
-        static_assert(interval_encoding_impl_t::invertible_tag == cols_traits::INVERTIBLE, "Invertible type mismatch");
+        static_assert(!cols_traits::INVERTIBLE ||
+                          interval_encoding_impl_t::invertible_tag,
+                      "Invertible permutation requires an invertible "
+                      "interval encoding");
         split_params_ = enc.get_split_params();
         // Find the base structure (move structure without run data)
         size_t domain = enc.domain();

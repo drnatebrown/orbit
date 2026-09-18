@@ -48,7 +48,10 @@ public:
     // When the permutation is already computed with a regular encoding
     template<typename rlbwt_interval_encoding_t>
     static packed_vector<columns> find_structure(const std::vector<uchar>& rlbwt_chars, const rlbwt_interval_encoding_t& enc, const uchar sigma) {
-        static_assert(rlbwt_interval_encoding_t::invertible_tag == cols_traits::INVERTIBLE, "Invertible type mismatch");
+        static_assert(!cols_traits::INVERTIBLE ||
+                          rlbwt_interval_encoding_t::invertible_tag,
+                      "Invertible RLBWT structure requires an invertible "
+                      "interval encoding");
         assert(rlbwt_chars.size() == enc.intervals());
 
         // Also initialize with the character width
@@ -63,7 +66,10 @@ public:
     // When the permutation is already computed with a rlbwt encoding
     template<typename rlbwt_interval_encoding_t>
     static packed_vector<columns> find_structure(const rlbwt_interval_encoding_t& enc) {
-        static_assert(rlbwt_interval_encoding_t::invertible_tag == cols_traits::INVERTIBLE, "Invertible type mismatch");
+        static_assert(!cols_traits::INVERTIBLE ||
+                          rlbwt_interval_encoding_t::invertible_tag,
+                      "Invertible RLBWT structure requires an invertible "
+                      "interval encoding");
         assert(enc.get_heads().size() == enc.intervals());
 
         // Also initialize with the character width

@@ -41,7 +41,13 @@ public:
 
     template<typename interval_encoding_impl_t>
     static packed_vector<columns> find_structure(const interval_encoding_impl_t& enc) {
-        static_assert(interval_encoding_impl_t::invertible_tag == cols_traits::INVERTIBLE, "Invertible type mismatch");
+        // Invertible structures need invertible encodings (fwd/inv flags).
+        // Plain structures may consume an invertible encoding after union
+        // splitting; they only read lengths / img_rank_inv.
+        static_assert(!cols_traits::INVERTIBLE ||
+                          interval_encoding_impl_t::invertible_tag,
+                      "Invertible move structure requires an invertible "
+                      "interval encoding");
         packed_vector<columns> structure(enc.intervals(), derived::get_move_widths(enc.domain(), enc.intervals(), enc.max_length()));
         derived::populate_structure(structure, enc);
         return structure;
@@ -300,7 +306,6 @@ public:
 
     template<typename interval_encoding_impl_t>
     static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc) {
-        static_assert(interval_encoding_impl_t::invertible_tag == false, "Invertible type mismatch");
         size_t start_val = 0;
         size_t output_start_val = 0;
         size_t img_rank_inv_idx = 0;

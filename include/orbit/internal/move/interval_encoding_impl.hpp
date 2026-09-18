@@ -325,11 +325,9 @@ protected:
 
     void apply_splitting(int_vector_t& curr_lengths, int_vector_t& curr_img_rank_inv, ulint& new_max_length) {
         if (this->split_params_ == NO_SPLITTING) {
+            new_max_length = this->max_length_;
             if constexpr (invertible) {
                 invertible_splitting(curr_lengths, curr_img_rank_inv, new_max_length);
-            }
-            else {
-                new_max_length = this->max_length_;
             }
             return;
         }
