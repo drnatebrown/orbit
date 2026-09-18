@@ -182,12 +182,48 @@ void test_phi_and_phi_inv_img_rank_inv_equivalence() {
     }
 }
 
+void test_sa_samples_to_phi_starts_images_preserves_pairs() {
+    // The first head is n - 1 because the terminator has least order.
+    vector<ulint> sa_heads = {9, 2, 7, 4};
+    vector<ulint> sa_tails = {5, 8, 1, 6};
+
+    auto [starts, images] = sa_samples_to_phi_starts_images(sa_heads, sa_tails);
+
+    const vector<ulint> expected_starts = {2, 4, 7, 9};
+    const vector<ulint> expected_images = {8, 6, 1, 5};
+    assert(starts.size() == expected_starts.size());
+    assert(images.size() == expected_images.size());
+    for (size_t i = 0; i < expected_starts.size(); ++i) {
+        assert(starts[i] == expected_starts[i]);
+        assert(images[i] == expected_images[i]);
+    }
+}
+
+void test_sa_samples_to_phi_inv_starts_images_preserves_pairs() {
+    // The first head is n - 1 because the terminator has least order.
+    vector<ulint> sa_heads = {9, 2, 7, 4};
+    vector<ulint> sa_tails = {5, 8, 1, 6};
+
+    auto [starts, images] = sa_samples_to_phi_inv_starts_images(sa_heads, sa_tails);
+
+    const vector<ulint> expected_starts = {1, 5, 6, 8};
+    const vector<ulint> expected_images = {7, 9, 4, 2};
+    assert(starts.size() == expected_starts.size());
+    assert(images.size() == expected_images.size());
+    for (size_t i = 0; i < expected_starts.size(); ++i) {
+        assert(starts[i] == expected_starts[i]);
+        assert(images[i] == expected_images[i]);
+    }
+}
+
 int main() {
     test_phi_phi_inv_structure_on_small_rlbwt();
     test_runperm_phi_phi_inv_wrapper_equivalence();
     test_runperm_phi_inv_img_rank_inv_wrapper_equivalence();
     test_runperm_phi_img_rank_inv_wrapper_equivalence();
     test_phi_and_phi_inv_img_rank_inv_equivalence();
+    test_sa_samples_to_phi_starts_images_preserves_pairs();
+    test_sa_samples_to_phi_inv_starts_images_preserves_pairs();
 
     std::cout << "permutation_phi_phi_inv unit tests passed" << std::endl;
     return 0;

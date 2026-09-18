@@ -4,6 +4,9 @@
 #include "orbit/common.hpp"
 #include "orbit/internal/ds/packed_vector_aligned.hpp"
 #include "orbit/internal/rlbwt/lf_permutation.hpp"
+#include <algorithm>
+#include <cassert>
+#include <numeric>
 
 namespace orbit::rlbwt {
 
@@ -287,6 +290,84 @@ inline std::tuple<int_vec, int_vec> rlbwt_to_phi_inv_img_rank_inv(const std::vec
     // Need a move structure with LF to find SA samples
     lf_move_impl_default<alphabet_t> move_lf(bwt_heads, bwt_run_lengths);
     return rlbwt_to_phi_inv_img_rank_inv(bwt_heads, bwt_run_lengths, move_lf, domain, max_length);
+}
+
+// Suffix Array Sample Methods
+
+// From starting suffix array samples (BWT run head samples) and ending suffix array samples (BWT run tail samples) to Phi interval images
+template<typename container1_t, typename container2_t>
+inline std::tuple<int_vec, int_vec> sa_samples_to_phi_starts_images(const container1_t& sa_heads, const container2_t& sa_tails, size_t domain) {
+    assert(sa_heads.size() == sa_tails.size());
+    assert(!sa_heads.empty());
+    assert(domain > 0);
+
+    int_vec phi_interval_starts(sa_heads.size(), bit_width(domain - 1));
+    int_vec phi_interval_images(sa_heads.size(), bit_width(domain - 1));
+
+    int_vec head_order(sa_heads.size(), bit_width(sa_heads.size() - 1));
+    std::iota(head_order.begin(), head_order.end(), 0);
+    std::sort(head_order.begin(), head_order.end(), [&](size_t a, size_t b) {
+        return sa_heads[a] < sa_heads[b];
+    });
+
+    for (size_t sorted_idx = 0; sorted_idx < head_order.size(); ++sorted_idx) {
+        const size_t original_idx = head_order[sorted_idx];
+        assert(static_cast<ulint>(sa_heads[original_idx]) < domain);
+        assert(static_cast<ulint>(sa_tails[original_idx]) < domain);
+        phi_interval_starts[sorted_idx] = sa_heads[original_idx];
+        phi_interval_images[sorted_idx] = sa_tails[original_idx];
+    }
+
+    return {phi_interval_starts, phi_interval_images};
+}
+
+
+template<typename container1_t, typename container2_t>
+inline std::tuple<int_vec, int_vec> sa_samples_to_phi_starts_images(const container1_t& sa_heads, const container2_t& sa_tails) {
+    assert(sa_heads.size() == sa_tails.size());
+    assert(!sa_heads.empty());
+
+    // Assume that terminator is of least order, else BWT is not valid
+    size_t domain = sa_heads[0] + 1;
+    return sa_samples_to_phi_starts_images(sa_heads, sa_tails, domain);
+}
+
+// Sort BWT run tail samples into Phi-inverse interval starts and carry along
+// the corresponding BWT run head samples as interval images.
+template<typename container1_t, typename container2_t>
+inline std::tuple<int_vec, int_vec> sa_samples_to_phi_inv_starts_images(const container1_t& sa_heads, const container2_t& sa_tails, size_t domain) {
+    assert(sa_heads.size() == sa_tails.size());
+    assert(!sa_heads.empty());
+    assert(domain > 0);
+
+    int_vec phi_inv_interval_starts(sa_tails.size(), bit_width(domain - 1));
+    int_vec phi_inv_interval_images(sa_tails.size(), bit_width(domain - 1));
+
+    int_vec tail_order(sa_tails.size(), bit_width(sa_tails.size() - 1));
+    std::iota(tail_order.begin(), tail_order.end(), 0);
+    std::sort(tail_order.begin(), tail_order.end(), [&](size_t a, size_t b) {
+        return sa_tails[a] < sa_tails[b];
+    });
+
+    for (size_t sorted_idx = 0; sorted_idx < tail_order.size(); ++sorted_idx) {
+        const size_t original_idx = tail_order[sorted_idx];
+        assert(static_cast<ulint>(sa_heads[original_idx]) < domain);
+        assert(static_cast<ulint>(sa_tails[original_idx]) < domain);
+        phi_inv_interval_starts[sorted_idx] = sa_tails[original_idx];
+        phi_inv_interval_images[sorted_idx] = sa_heads[original_idx];
+    }
+
+    return {phi_inv_interval_starts, phi_inv_interval_images};
+}
+
+template<typename container1_t, typename container2_t>
+inline std::tuple<int_vec, int_vec> sa_samples_to_phi_inv_starts_images(const container1_t& sa_heads, const container2_t& sa_tails) {
+    assert(sa_heads.size() == sa_tails.size());
+    assert(!sa_heads.empty());
+
+    // Assume that terminator is of least order, else BWT is not valid
+    size_t domain = sa_heads[0] + 1;
+    return sa_samples_to_phi_inv_starts_images(sa_heads, sa_tails, domain);
 }
 
 } // namespace orbit::rlbwt
