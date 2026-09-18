@@ -292,7 +292,9 @@ inline std::tuple<int_vec, int_vec> rlbwt_to_phi_inv_img_rank_inv(const std::vec
     return rlbwt_to_phi_inv_img_rank_inv(bwt_heads, bwt_run_lengths, move_lf, domain, max_length);
 }
 
-// Suffix Array Sample Methods
+/**
+ * Suffix Array Sample Methods
+ */
 
 // From starting suffix array samples (BWT run head samples) and ending suffix array samples (BWT run tail samples) to Phi interval images
 template<typename container1_t, typename container2_t>
@@ -315,7 +317,7 @@ inline std::tuple<int_vec, int_vec> sa_samples_to_phi_starts_images(const contai
         assert(static_cast<ulint>(sa_heads[original_idx]) < domain);
         assert(static_cast<ulint>(sa_tails[original_idx]) < domain);
         phi_interval_starts[sorted_idx] = sa_heads[original_idx];
-        phi_interval_images[sorted_idx] = sa_tails[original_idx];
+        phi_interval_images[sorted_idx] = (original_idx == 0) ? sa_tails[sa_tails.size() - 1] : sa_tails[original_idx - 1];
     }
 
     return {phi_interval_starts, phi_interval_images};
@@ -323,13 +325,14 @@ inline std::tuple<int_vec, int_vec> sa_samples_to_phi_starts_images(const contai
 
 
 template<typename container1_t, typename container2_t>
-inline std::tuple<int_vec, int_vec> sa_samples_to_phi_starts_images(const container1_t& sa_heads, const container2_t& sa_tails) {
+inline std::tuple<int_vec, int_vec, size_t> sa_samples_to_phi_starts_images(const container1_t& sa_heads, const container2_t& sa_tails) {
     assert(sa_heads.size() == sa_tails.size());
     assert(!sa_heads.empty());
 
     // Assume that terminator is of least order, else BWT is not valid
     size_t domain = sa_heads[0] + 1;
-    return sa_samples_to_phi_starts_images(sa_heads, sa_tails, domain);
+    auto [phi_starts, phi_images] = sa_samples_to_phi_starts_images(sa_heads, sa_tails, domain);
+    return {phi_starts, phi_images, domain};
 }
 
 // Sort BWT run tail samples into Phi-inverse interval starts and carry along
@@ -354,20 +357,21 @@ inline std::tuple<int_vec, int_vec> sa_samples_to_phi_inv_starts_images(const co
         assert(static_cast<ulint>(sa_heads[original_idx]) < domain);
         assert(static_cast<ulint>(sa_tails[original_idx]) < domain);
         phi_inv_interval_starts[sorted_idx] = sa_tails[original_idx];
-        phi_inv_interval_images[sorted_idx] = sa_heads[original_idx];
+        phi_inv_interval_images[sorted_idx] = (original_idx == sa_heads.size() - 1) ? sa_heads[0] : sa_heads[original_idx + 1];
     }
 
     return {phi_inv_interval_starts, phi_inv_interval_images};
 }
 
 template<typename container1_t, typename container2_t>
-inline std::tuple<int_vec, int_vec> sa_samples_to_phi_inv_starts_images(const container1_t& sa_heads, const container2_t& sa_tails) {
+inline std::tuple<int_vec, int_vec, size_t> sa_samples_to_phi_inv_starts_images(const container1_t& sa_heads, const container2_t& sa_tails) {
     assert(sa_heads.size() == sa_tails.size());
     assert(!sa_heads.empty());
 
     // Assume that terminator is of least order, else BWT is not valid
     size_t domain = sa_heads[0] + 1;
-    return sa_samples_to_phi_inv_starts_images(sa_heads, sa_tails, domain);
+    auto [phi_inv_starts, phi_inv_images] = sa_samples_to_phi_inv_starts_images(sa_heads, sa_tails, domain);
+    return {phi_inv_starts, phi_inv_images, domain};
 }
 
 } // namespace orbit::rlbwt
