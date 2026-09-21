@@ -16,40 +16,47 @@ public:
 
     rlbwt_interval_encoding_impl() = default;
 
+    // When heads / lengths / img_rank_inv / alphabet were computed independently
+    // (e.g. LF or FL preprocess already done). Lengths and img_rank_inv are
+    // pre-split; splitting is applied here.
+    template<typename container1_t, typename container2_t, typename container3_t>
+    static rlbwt_interval_encoding_impl<invertible, int_vector_t, alphabet_t>
+    from_heads_lengths_and_img_rank_inv(const container1_t& heads,
+                                        const container2_t& lengths,
+                                        const container3_t& img_rank_inv,
+                                        alphabet_t alphabet,
+                                        const size_t domain,
+                                        const ulint max_length,
+                                        const split_params& sp = split_params()) {
+        assert(heads.size() == lengths.size());
+        assert(lengths.size() == img_rank_inv.size());
+
+        rlbwt_interval_encoding_impl<invertible, int_vector_t, alphabet_t> enc;
+        enc.set_initial_values(domain, lengths.size(), max_length, sp);
+        enc.init_img_rank_inv(lengths, img_rank_inv);
+        enc.alphabet_ = std::move(alphabet);
+        enc.init_heads(heads, lengths);
+        return enc;
+    }
+
     template<typename container1_t, typename container2_t>
     static rlbwt_interval_encoding_impl<invertible, int_vector_t, alphabet_t> lf_interval_encoding(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, const split_params& sp = split_params()) {
         assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
 
-        rlbwt_interval_encoding_impl<invertible, int_vector_t, alphabet_t> enc;
-
         auto [head_counts, n, max_length] = get_LF_head_counts(rlbwt_heads, rlbwt_run_lengths);
-        enc.set_initial_values(n, rlbwt_heads.size(), max_length, sp);
         int_vector_t img_rank_inv = get_LF_img_rank_inv(rlbwt_heads, head_counts);
-
-        // Also does splitting
-        enc.init_img_rank_inv(rlbwt_run_lengths, img_rank_inv);
-
-        enc.alphabet_ = alphabet_t(head_counts);
-        enc.init_heads(rlbwt_heads, rlbwt_run_lengths);
-        return enc;
+        return from_heads_lengths_and_img_rank_inv(rlbwt_heads, rlbwt_run_lengths, img_rank_inv,
+                                                   alphabet_t(head_counts), n, max_length, sp);
     }
 
     template<typename container1_t, typename container2_t>
     static rlbwt_interval_encoding_impl<invertible, int_vector_t, alphabet_t> fl_interval_encoding(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, const split_params& sp = split_params()) {
         assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
 
-        rlbwt_interval_encoding_impl<invertible, int_vector_t, alphabet_t> enc;
-
         auto [head_counts, F_lens_and_origin_run, n, max_length] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
-        enc.set_initial_values(n, rlbwt_heads.size(), max_length, sp);
-
         auto [F_heads, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv<int_vector_t>(rlbwt_heads.size(), F_lens_and_origin_run, max_length);
-        // Also does splitting
-        enc.init_img_rank_inv(F_lens, F_img_rank_inv);
-
-        enc.alphabet_ = alphabet_t(head_counts);
-        enc.init_heads(F_heads, F_lens);
-        return enc;
+        return from_heads_lengths_and_img_rank_inv(F_heads, F_lens, F_img_rank_inv,
+                                                   alphabet_t(head_counts), n, max_length, sp);
     }
 
     const int_vector_t& get_heads() const {
