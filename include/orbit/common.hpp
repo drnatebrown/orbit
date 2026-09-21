@@ -33,6 +33,8 @@ inline constexpr size_t VERSION_MAJOR = 1;
 inline constexpr size_t VERSION_MINOR = 2;
 inline constexpr size_t VERSION_PATCH = 0;
 
+inline constexpr const char MOVE_STRUCTURE_EXTENSION[] = ".move";
+
 inline size_t serialize_version(std::ostream& out) {
     size_t written_bytes = 0;
     size_t major = VERSION_MAJOR;
