@@ -123,66 +123,74 @@ inline int_vector_t rlbwt_to_lf_images(const container1_t& rlbwt_heads, const co
 }
 
 template<typename container1_t, typename container2_t>
-inline std::tuple<std::vector<size_t>, std::vector<std::vector<std::pair<size_t, size_t>>>, size_t, ulint> get_FL_head_counts(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths) {
+inline std::tuple<std::vector<size_t>, size_t, ulint> get_FL_head_counts(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths) {
     assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
 
     std::vector<size_t> head_counts(MAX_ALPHABET_SIZE, 0);
-    // Holds the lengths of runs in F, and the origin run in BWT (i.e., run containing the FL(i) for i at run heads)
-    std::vector<std::vector<std::pair<size_t, size_t>>> F_lens_and_origin_run(MAX_ALPHABET_SIZE);
     size_t bwt_length = 0;
     ulint max_length = 0;
     for (size_t i = 0; i < rlbwt_heads.size(); i++)
     {
         uchar c = rlbwt_heads[i];
         ulint length = rlbwt_run_lengths[i];
-        F_lens_and_origin_run[c].push_back({length, i});
         ++head_counts[c];
         bwt_length+=length;
         max_length = std::max(max_length, length);
     }
-    return {head_counts, F_lens_and_origin_run, bwt_length, max_length};
+    return {head_counts, bwt_length, max_length};
 }
 
-template<typename int_vector_t = int_vector_aligned>
-inline std::tuple<std::vector<uchar>, int_vector_t, int_vector_t> get_FL_runs_and_images(const size_t runs, const std::vector<std::vector<std::pair<size_t, size_t>>> &F_lens_and_origins, size_t bwt_length, ulint max_length) {
+// Exclusive F-order offsets from per-symbol head counts. Caller mutates the copy as a write cursor.
+inline std::vector<size_t> fl_head_offsets(const std::vector<size_t>& head_counts) {
+    std::vector<size_t> offsets(head_counts.size(), 0);
+    size_t seen = 0;
+    for (size_t c = 0; c < head_counts.size(); ++c) {
+        offsets[c] = seen;
+        seen += head_counts[c];
+    }
+    return offsets;
+}
+
+template<typename container1_t, typename container2_t, typename int_vector_t = int_vector_aligned>
+inline std::tuple<std::vector<uchar>, int_vector_t, int_vector_t> get_FL_runs_and_images(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, const std::vector<size_t>& head_counts, size_t bwt_length, ulint max_length) {
+    const size_t runs = rlbwt_heads.size();
     std::vector<uchar> F_heads(runs);
     int_vector_t F_lens(runs, bit_width(max_length));
     int_vector_t images(runs, bit_width(bwt_length - 1));
 
-    size_t curr_run = 0;
-    for (size_t c = 0; c < F_lens_and_origins.size(); ++c) {
-        for (size_t j = 0; j < F_lens_and_origins[c].size(); ++j) {
-            F_heads[curr_run] = c;
-            F_lens[curr_run] = F_lens_and_origins[c][j].first;
-            images[curr_run] = F_lens_and_origins[c][j].second;
-            curr_run++;
-        }
+    std::vector<size_t> cursor = fl_head_offsets(head_counts);
+    for (size_t i = 0; i < runs; ++i) {
+        uchar c = rlbwt_heads[i];
+        size_t slot = cursor[c]++;
+        F_heads[slot] = c;
+        F_lens[slot] = rlbwt_run_lengths[i];
+        images[slot] = i;
     }
     return {F_heads, F_lens, images};
 }
 
-template<typename int_vector_t = int_vector_aligned>
-inline std::tuple<std::vector<uchar>, int_vector_t, int_vector_t> get_FL_runs_and_img_rank_inv(const size_t runs, const std::vector<std::vector<std::pair<size_t, size_t>>> &F_lens_and_origins, ulint max_length) {
+template<typename container1_t, typename container2_t, typename int_vector_t = int_vector_aligned>
+inline std::tuple<std::vector<uchar>, int_vector_t, int_vector_t> get_FL_runs_and_img_rank_inv(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, const std::vector<size_t>& head_counts, ulint max_length) {
+    const size_t runs = rlbwt_heads.size();
     std::vector<uchar> F_heads(runs);
     int_vector_t F_lens(runs, bit_width(max_length));
     int_vector_t F_img_rank_inv(runs, bit_width(runs - 1));
 
-    size_t curr_run = 0;
-    for (size_t c = 0; c < F_lens_and_origins.size(); ++c) {
-        for (size_t j = 0; j < F_lens_and_origins[c].size(); ++j) {
-            F_heads[curr_run] = c;
-            F_lens[curr_run] = F_lens_and_origins[c][j].first;
-            F_img_rank_inv[F_lens_and_origins[c][j].second] = curr_run;
-            curr_run++;
-        }
+    std::vector<size_t> cursor = fl_head_offsets(head_counts);
+    for (size_t i = 0; i < runs; ++i) {
+        uchar c = rlbwt_heads[i];
+        size_t slot = cursor[c]++;
+        F_heads[slot] = c;
+        F_lens[slot] = rlbwt_run_lengths[i];
+        F_img_rank_inv[i] = slot;
     }
     return {F_heads, F_lens, F_img_rank_inv};
 }
 
 template<typename container1_t, typename container2_t, typename int_vector_t = int_vector_aligned>
 inline std::tuple<std::vector<uchar>, int_vector_t, int_vector_t> rlbwt_to_fl_runs_and_img_rank_inv(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, size_t* domain = nullptr, ulint* max_length = nullptr) {
-    auto [head_counts, F_lens_and_origin_run, n, max_length_seen] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
-    auto [F_heads, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv(rlbwt_heads.size(), F_lens_and_origin_run, max_length_seen);
+    auto [head_counts, n, max_length_seen] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
+    auto [F_heads, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv<container1_t, container2_t, int_vector_t>(rlbwt_heads, rlbwt_run_lengths, head_counts, max_length_seen);
     if (domain != nullptr) {
         *domain = n;
     }
@@ -194,8 +202,8 @@ inline std::tuple<std::vector<uchar>, int_vector_t, int_vector_t> rlbwt_to_fl_ru
 
 template<typename container1_t, typename container2_t, typename int_vector_t = int_vector_aligned>
 inline std::pair<int_vector_t, int_vector_t> rlbwt_to_fl_img_rank_inv(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, size_t* domain = nullptr, ulint* max_length = nullptr) {
-    auto [head_counts, F_lens_and_origin_run, n, max_length_seen] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
-    auto [_, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv(rlbwt_heads.size(), F_lens_and_origin_run, max_length_seen);
+    auto [head_counts, n, max_length_seen] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
+    auto [_, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv<container1_t, container2_t, int_vector_t>(rlbwt_heads, rlbwt_run_lengths, head_counts, max_length_seen);
     if (domain != nullptr) {
         *domain = n;
     }
@@ -207,8 +215,8 @@ inline std::pair<int_vector_t, int_vector_t> rlbwt_to_fl_img_rank_inv(const cont
 
 template<typename container1_t, typename container2_t, typename int_vector_t = int_vector_aligned>
 inline std::tuple<std::vector<uchar>, int_vector_t, int_vector_t> rlbwt_to_fl_runs_and_images(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, size_t* domain = nullptr, ulint* max_length = nullptr) {
-    auto [head_counts, F_lens_and_origin_run, n, max_length_seen] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
-    auto [F_heads, F_lens, F_images] = get_FL_runs_and_images(rlbwt_heads.size(), F_lens_and_origin_run, n, max_length_seen);
+    auto [head_counts, n, max_length_seen] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
+    auto [F_heads, F_lens, F_images] = get_FL_runs_and_images<container1_t, container2_t, int_vector_t>(rlbwt_heads, rlbwt_run_lengths, head_counts, n, max_length_seen);
     if (domain != nullptr) {
         *domain = n;
     }
@@ -220,8 +228,8 @@ inline std::tuple<std::vector<uchar>, int_vector_t, int_vector_t> rlbwt_to_fl_ru
 
 template<typename container1_t, typename container2_t, typename int_vector_t = int_vector_aligned>
 inline std::pair<int_vector_t, int_vector_t> rlbwt_to_fl_images(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, size_t* domain = nullptr, ulint* max_length = nullptr) {
-    auto [head_counts, F_lens_and_origin_run, n, max_length_seen] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
-    auto [_, F_lens, F_images] = get_FL_runs_and_images(rlbwt_heads.size(), F_lens_and_origin_run, n, max_length_seen);
+    auto [head_counts, n, max_length_seen] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
+    auto [_, F_lens, F_images] = get_FL_runs_and_images<container1_t, container2_t, int_vector_t>(rlbwt_heads, rlbwt_run_lengths, head_counts, n, max_length_seen);
     if (domain != nullptr) {
         *domain = n;
     }

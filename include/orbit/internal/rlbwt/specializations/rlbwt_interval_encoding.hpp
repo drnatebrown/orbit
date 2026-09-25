@@ -53,8 +53,8 @@ public:
     static rlbwt_interval_encoding_impl<invertible, int_vector_t, alphabet_t> fl_interval_encoding(const container1_t& rlbwt_heads, const container2_t& rlbwt_run_lengths, const split_params& sp = split_params()) {
         assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
 
-        auto [head_counts, F_lens_and_origin_run, n, max_length] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
-        auto [F_heads, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv<int_vector_t>(rlbwt_heads.size(), F_lens_and_origin_run, max_length);
+        auto [head_counts, n, max_length] = get_FL_head_counts(rlbwt_heads, rlbwt_run_lengths);
+        auto [F_heads, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv<container1_t, container2_t, int_vector_t>(rlbwt_heads, rlbwt_run_lengths, head_counts, max_length);
         return from_heads_lengths_and_img_rank_inv(F_heads, F_lens, F_img_rank_inv,
                                                    alphabet_t(head_counts), n, max_length, sp);
     }

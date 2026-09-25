@@ -94,6 +94,9 @@ using permutation_integrated_absolute = permutation<data_columns_t, true, true>;
      // !!!       For this reason, splitting is turned off by default when using the simplified interface.
 *    permutation(const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const std::vector<data_tuple> &run_data, split_params split_params = NO_SPLITTING);
 *    permutation(const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const split_params &split_params, const std::vector<data_tuple> &run_data);
+*    // Column-major alternative: std::array<ColContainer, data_columns::COUNT> where ColContainer
+*    // supports size() and operator[](interval) -> ulint (for example int_vector or vector<ulint>).
+*    // run_cols[c][i] is column c of interval i. The caller chooses the container width.
 *
 *    // === Splitting Constructor ===
 *    // interval_encoding -> object built by passing lengths, images to interval_encoding constructor

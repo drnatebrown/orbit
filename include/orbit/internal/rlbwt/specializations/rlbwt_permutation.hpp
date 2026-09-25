@@ -31,6 +31,7 @@ protected:
     MOVE_CLASS_TRAITS(base_columns)
     using data_columns = typename base::data_columns;
     using data_tuple = typename base::data_tuple;
+    static constexpr size_t num_run_cols = static_cast<size_t>(data_columns_t::COUNT);
     using position = typename base::position;
     using rlbwt_interval_encoding_t = rlbwt_interval_encoding_impl<cols_traits::INVERTIBLE, int_vector_aligned, alphabet_t>;
 
@@ -88,12 +89,49 @@ protected:
         build_from_rlbwt(rlbwt_heads, rlbwt_run_lengths, sp, nullptr, std::move(get_run_cols_data));
     }
 
+    // Column-major run data: run_cols[c][i] is column c of interval i.
+    template<typename rlbwt_interval_encoding_impl_t, typename ColContainer,
+             std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    rlbwt_permutation(const rlbwt_interval_encoding_impl_t& enc, const std::array<ColContainer, num_run_cols>& run_cols) {
+        static_assert(std::is_same_v<alphabet_t, typename rlbwt_interval_encoding_impl_t::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
+        alphabet_ = enc.get_alphabet();
+        base::build_from_interval_encoding_columns(enc, run_cols);
+    }
+
+    template<typename container1_t, typename container2_t, typename ColContainer,
+             std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const std::array<ColContainer, num_run_cols>& run_cols)
+        : rlbwt_permutation(rlbwt_heads, rlbwt_run_lengths, NO_SPLITTING, run_cols) {}
+
+    template<typename container1_t, typename container2_t, typename ColContainer,
+             std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, const std::array<ColContainer, num_run_cols>& run_cols) {
+        assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
+        auto enc = find_interval_encoding(rlbwt_heads, rlbwt_run_lengths, sp);
+        alphabet_ = enc.get_alphabet();
+        base::build_from_encoding_and_columns(enc, rlbwt_run_lengths, run_cols);
+    }
+
     static rlbwt_permutation from_structure(packed_vector<base_columns> &&structure, const size_t domain, const size_t runs) {
-        return rlbwt_permutation(std::move(structure), domain, runs);
+        static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed permutation structure if integrating user data with move structure");
+        return rlbwt_permutation(move_structure_perm(std::move(structure), domain, runs));
     }
 
     static rlbwt_permutation from_structure(packed_vector<base_columns> &&structure, std::vector<data_tuple> &run_data, const size_t domain, const size_t runs) {
-        return rlbwt_permutation(std::move(structure), run_data, domain, runs);
+        static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed permutation structure if integrating user data with move structure");
+        rlbwt_permutation result(move_structure_perm(std::move(structure), domain, runs));
+        auto run_cols_widths = result.get_data_cols_widths(run_data);
+        result.fill_separated_data(run_data, run_cols_widths);
+        return result;
+    }
+
+    template<typename ColContainer, std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    static rlbwt_permutation from_structure(packed_vector<base_columns> &&structure, const std::array<ColContainer, num_run_cols>& run_cols, const size_t domain, const size_t runs) {
+        static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed permutation structure if integrating user data with move structure");
+        rlbwt_permutation result(move_structure_perm(std::move(structure), domain, runs));
+        auto run_cols_widths = result.get_data_cols_widths(run_cols);
+        result.fill_separated_data(run_cols, run_cols_widths);
+        return result;
     }
 
     static rlbwt_permutation from_move_structure(move_structure_perm &&ms) {
@@ -101,7 +139,22 @@ protected:
     }
 
     static rlbwt_permutation from_move_structure(move_structure_perm &&ms, std::vector<data_tuple> &run_data) {
-        return rlbwt_permutation(std::move(ms), run_data);
+        assert(run_data.size() == ms.size());
+        static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed move structure if integrating user data with move structure");
+        rlbwt_permutation result(std::move(ms));
+        auto run_cols_widths = result.get_data_cols_widths(run_data);
+        result.fill_separated_data(run_data, run_cols_widths);
+        return result;
+    }
+
+    template<typename ColContainer, std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    static rlbwt_permutation from_move_structure(move_structure_perm &&ms, const std::array<ColContainer, num_run_cols>& run_cols) {
+        assert(base::run_columns_rows(run_cols) == ms.size());
+        static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed move structure if integrating user data with move structure");
+        rlbwt_permutation result(std::move(ms));
+        auto run_cols_widths = result.get_data_cols_widths(run_cols);
+        result.fill_separated_data(run_cols, run_cols_widths);
+        return result;
     }
 
     uchar get_character(ulint interval) {
@@ -165,6 +218,8 @@ protected:
     }
 
 protected:
+    explicit rlbwt_permutation(move_structure_perm ms) : base(std::move(ms)) {}
+
     alphabet_t alphabet_;
 
     template<typename container1_t, typename container2_t>

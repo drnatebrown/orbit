@@ -334,6 +334,43 @@ void test_int_vector_aligned_serialize_roundtrip() {
     }
 }
 
+void test_clear_releases_rows() {
+    int_vector v(10, 8);
+    for (size_t i = 0; i < 10; ++i) {
+        v.set(i, static_cast<ulint>(i));
+    }
+    v.clear();
+    assert(v.size() == 0);
+    assert(v.rows() == 0);
+
+    v = int_vector(4, 8);
+    v.set(0, 3);
+    assert(v.rows() == 4);
+    assert(v.get(0) == 3);
+    v.clear();
+    assert(v.rows() == 0);
+
+    int_vector_aligned aligned(6, 5);
+    aligned.set(1, 7);
+    aligned.clear();
+    assert(aligned.size() == 0);
+    assert(aligned.rows() == 0);
+    aligned = int_vector_aligned(2, 5);
+    aligned.set(1, 4);
+    assert(aligned.rows() == 2);
+    assert(aligned.get(1) == 4);
+
+    packed_matrix<2> matrix(8, array<uchar, 2>{4, 4});
+    matrix.set<0>(0, 1);
+    matrix.clear();
+    assert(matrix.rows() == 0);
+
+    packed_matrix_aligned<2> matrix_aligned(8, array<uchar, 2>{4, 4});
+    matrix_aligned.set<1>(2, 3);
+    matrix_aligned.clear();
+    assert(matrix_aligned.rows() == 0);
+}
+
 void test_packed_vector_aligned_with_enum() {
     enum class Columns {
         X,
@@ -381,6 +418,7 @@ int main() {
     test_int_vector_aligned_serialize_roundtrip();
     test_packed_vector_aligned_with_enum();
     test_int_vector_aligned_iterators();
+    test_clear_releases_rows();
 
     std::cout << "packed_vector tests passed" << std::endl;
     return 0;

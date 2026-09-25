@@ -3,6 +3,7 @@
 
 #include "orbit/permutation.hpp"
 
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <sstream>
@@ -209,8 +210,53 @@ static void test_runperm_next_with_steps_and_pred_succ() {
     assert(!pred_missing.has_value());
 }
 
+static void test_column_run_data_matches_row_path() {
+    const vector<ulint> perm = {1, 2, 9, 10, 11, 3, 12, 13, 4, 5, 14, 0, 15, 6, 7, 8};
+    auto [lengths, interval_perm] = get_permutation_intervals(perm);
+
+    vector<TestRunData> rows(lengths.size());
+    vector<ulint> col0(lengths.size());
+    vector<ulint> col1(lengths.size());
+    int_vector packed0(lengths.size(), 8);
+    int_vector packed1(lengths.size(), 8);
+    for (size_t i = 0; i < lengths.size(); ++i) {
+        ulint a = static_cast<ulint>(i);
+        ulint b = static_cast<ulint>(i + 100);
+        rows[i] = {a, b};
+        col0[i] = a;
+        col1[i] = b;
+        packed0[i] = a;
+        packed1[i] = b;
+    }
+
+    std::array<vector<ulint>, 2> wide_cols{col0, col1};
+    std::array<int_vector, 2> packed_cols{std::move(packed0), std::move(packed1)};
+
+    using Sep = permutation_separated_absolute<TestRunCols>;
+    using Integrated = permutation_integrated_absolute<TestRunCols>;
+    Sep row_sep(lengths, interval_perm, rows);
+    Sep wide_sep(lengths, interval_perm, wide_cols);
+    Sep packed_sep(lengths, interval_perm, packed_cols);
+    Integrated row_int(lengths, interval_perm, rows);
+    Integrated packed_int(lengths, interval_perm, packed_cols);
+
+    assert(wide_sep.intervals() == row_sep.intervals());
+    assert(packed_sep.domain() == row_sep.domain());
+    for (ulint i = 0; i < row_sep.intervals(); ++i) {
+        assert(wide_sep.get<TestRunCols::VAL1>(i) == row_sep.get<TestRunCols::VAL1>(i));
+        assert(wide_sep.get<TestRunCols::VAL2>(i) == row_sep.get<TestRunCols::VAL2>(i));
+        assert(packed_sep.get<TestRunCols::VAL1>(i) == row_sep.get<TestRunCols::VAL1>(i));
+        assert(packed_sep.get<TestRunCols::VAL2>(i) == row_sep.get<TestRunCols::VAL2>(i));
+        assert(packed_int.get<TestRunCols::VAL1>(i) == row_int.get<TestRunCols::VAL1>(i));
+        assert(packed_int.get<TestRunCols::VAL2>(i) == row_int.get<TestRunCols::VAL2>(i));
+        assert(wide_sep.get_length(i) == lengths[i]);
+        assert(packed_sep.get_row(i) == row_sep.get_row(i));
+    }
+}
+
 int main() {
     test_runperm_separated_absolute_basic_mapping_and_run_data();
+    test_column_run_data_matches_row_path();
     test_runperm_up_down_navigation();
     test_runperm_serialize_roundtrip_separated_absolute();
     test_runperm_next_with_steps_and_pred_succ();

@@ -83,12 +83,11 @@ void test_rlbwt_fl_permutation_heads_and_alphabet() {
     assert(perm.runs() == heads.size());
     assert(perm.sigma() == nucleotide::size());
 
-    auto [head_counts, F_lens_and_origin_run, n, max_length] = get_FL_head_counts(heads, lengths);
-    (void)head_counts;
+    auto [head_counts, n, max_length] = get_FL_head_counts(heads, lengths);
     (void)max_length;
     assert(n == perm.domain());
 
-    auto [F_heads, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv<int_vector_aligned>(heads.size(), F_lens_and_origin_run, max_length);
+    auto [F_heads, F_lens, F_img_rank_inv] = get_FL_runs_and_img_rank_inv(heads, lengths, head_counts, max_length);
     (void)F_img_rank_inv;
     assert(F_heads.size() == heads.size());
     assert(F_lens.size() == lengths.size());
