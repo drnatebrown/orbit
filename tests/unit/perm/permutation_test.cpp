@@ -62,8 +62,11 @@ static void test_runperm_separated_absolute_basic_mapping_and_run_data() {
     assert(rp.intervals() == lengths.size());
 
     // Interval-level checks.
+    ulint prefix = 0;
     for (ulint i = 0; i < rp.intervals(); ++i) {
+        assert(rp.get_start(i) == prefix);
         assert(rp.get_length(i) == lengths[i]);
+        prefix += rp.get_length(i);
         assert(rp.get<TestRunCols::VAL1>(i) == static_cast<ulint>(i));
         assert(rp.get<TestRunCols::VAL2>(i) == static_cast<ulint>(i + 100));
         // get_row must match per-column get
@@ -72,10 +75,13 @@ static void test_runperm_separated_absolute_basic_mapping_and_run_data() {
         assert(row[1] == rp.get<TestRunCols::VAL2>(i));
         assert(row == run_data[i]);
     }
+    assert(prefix == domain);
+    assert(rp.get_start(rp.intervals()) == domain);
 
     // position-level mapping: next() must follow perm, and run data must agree.
     for (ulint idx = 0; idx < domain; ++idx) {
         auto pos = make_pos_absolute<RP>(rp, idx);
+        assert(rp.get_start(pos) == rp.get_start(pos.interval));
         auto next_pos = rp.next(pos);
         assert(next_pos.idx == perm[idx]);
 

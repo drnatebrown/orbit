@@ -133,6 +133,9 @@ using permutation_integrated_absolute = permutation<data_columns_t, true, true>;
 *    ulint get(size_t i) const; // Get value of run data column for interval i
 *    ulint get_length(position pos) const; // Get length of interval containing position
 *    ulint get_length(size_t i) const; // Get length of interval i
+*    // Absolute positions only (store_absolute_positions = true). i == intervals() returns the domain.
+*    ulint get_start(position pos) const; // Get absolute start of the interval containing position
+*    ulint get_start(size_t i) const; // Get absolute start of interval i
 *
 *    // === Search methods ===
 *    template<data_columns_t col>

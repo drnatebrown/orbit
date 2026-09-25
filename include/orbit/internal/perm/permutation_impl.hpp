@@ -426,6 +426,15 @@ public:
     ulint get_length(position position) const {
         return get_length(position.interval);
     }
+
+    template<bool absolute = store_absolute_positions, std::enable_if_t<absolute, int> = 0>
+    ulint get_start(ulint interval) const {
+        return move_structure.get_start(interval);
+    }
+    template<bool absolute = store_absolute_positions, std::enable_if_t<absolute, int> = 0>
+    ulint get_start(position position) const {
+        return get_start(position.interval);
+    }
     
     split_params get_split_params() const {
         return split_params_;
