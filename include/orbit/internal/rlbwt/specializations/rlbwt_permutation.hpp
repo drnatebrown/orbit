@@ -44,6 +44,19 @@ protected:
     rlbwt_permutation(const rlbwt_interval_encoding_impl_t &enc) 
     : rlbwt_permutation(enc, std::vector<data_tuple>(enc.intervals())) {}
 
+    // Rvalue encoding. Alphabet is copied before packed vectors are dropped.
+    template<typename Enc,
+             typename dc = data_columns_t,
+             std::enable_if_t<std::is_same_v<dc, empty_data_columns> &&
+                              !std::is_lvalue_reference_v<Enc> &&
+                              is_interval_encoding_type<std::decay_t<Enc>>::value, int> = 0>
+    rlbwt_permutation(Enc&& enc) {
+        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<Enc>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
+        const size_t n = enc.intervals();
+        alphabet_ = enc.get_alphabet();
+        base::build_from_interval_encoding_consume(std::move(enc), std::vector<data_tuple>(n));
+    }
+
     template<typename dc = data_columns_t,
              std::enable_if_t<std::is_same_v<dc, empty_data_columns>, int> = 0>
     rlbwt_permutation(const std::vector<uchar>& bwt, const split_params& sp = {})
@@ -65,6 +78,16 @@ protected:
         static_assert(std::is_same_v<alphabet_t, typename rlbwt_interval_encoding_impl_t::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
         alphabet_ = enc.get_alphabet();
         base::build_from_interval_encoding(enc, run_data);
+    }
+
+    // Both arguments are rvalues. Alphabet is copied before packed vectors are dropped.
+    template<typename Enc,
+             std::enable_if_t<!std::is_lvalue_reference_v<Enc> &&
+                              is_interval_encoding_type<std::decay_t<Enc>>::value, int> = 0>
+    rlbwt_permutation(Enc&& enc, std::vector<data_tuple>&& run_data) {
+        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<Enc>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
+        alphabet_ = enc.get_alphabet();
+        base::build_from_interval_encoding_consume(std::move(enc), std::move(run_data));
     }
 
     template<typename container1_t, typename container2_t>
@@ -96,6 +119,17 @@ protected:
         static_assert(std::is_same_v<alphabet_t, typename rlbwt_interval_encoding_impl_t::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
         alphabet_ = enc.get_alphabet();
         base::build_from_interval_encoding_columns(enc, run_cols);
+    }
+
+    // Both arguments are rvalues. Alphabet is copied before packed vectors are dropped.
+    template<typename Enc, typename ColContainer,
+             std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer> &&
+                              !std::is_lvalue_reference_v<Enc> &&
+                              is_interval_encoding_type<std::decay_t<Enc>>::value, int> = 0>
+    rlbwt_permutation(Enc&& enc, std::array<ColContainer, num_run_cols>&& run_cols) {
+        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<Enc>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
+        alphabet_ = enc.get_alphabet();
+        base::build_from_interval_encoding_columns_consume(std::move(enc), std::move(run_cols));
     }
 
     template<typename container1_t, typename container2_t, typename ColContainer,

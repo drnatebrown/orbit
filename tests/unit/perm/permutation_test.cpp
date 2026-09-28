@@ -260,12 +260,90 @@ static void test_column_run_data_matches_row_path() {
     }
 }
 
+static void assert_same_navigation(permutation_separated_absolute<TestRunCols>& kept,
+                                   permutation_separated_absolute<TestRunCols>& consumed) {
+    assert(consumed.domain() == kept.domain());
+    assert(consumed.runs() == kept.runs());
+    assert(consumed.intervals() == kept.intervals());
+    for (ulint i = 0; i < kept.intervals(); ++i) {
+        assert(consumed.get_length(i) == kept.get_length(i));
+        assert(consumed.get<TestRunCols::VAL1>(i) == kept.get<TestRunCols::VAL1>(i));
+        assert(consumed.get<TestRunCols::VAL2>(i) == kept.get<TestRunCols::VAL2>(i));
+        assert(consumed.get_row(i) == kept.get_row(i));
+    }
+    auto a = kept.first();
+    auto b = consumed.first();
+    assert(a.interval == b.interval);
+    assert(a.offset == b.offset);
+    assert(a.idx == b.idx);
+    for (int step = 0; step < 5; ++step) {
+        a = kept.next(a);
+        b = consumed.next(b);
+        assert(a.interval == b.interval);
+        assert(a.offset == b.offset);
+        assert(a.idx == b.idx);
+    }
+}
+
+static void test_consuming_encoding_ctor_matches_const_ctor() {
+    const vector<ulint> perm = {1, 2, 9, 10, 11, 3, 12, 13, 4, 5, 14, 0, 15, 6, 7, 8};
+    auto [lengths, images] = get_permutation_intervals(perm);
+
+    using Enc = interval_encoding_impl<>;
+    using RP = permutation_separated_absolute<TestRunCols>;
+    Enc enc = Enc::from_lengths_and_images(lengths, images, split_params());
+    vector<TestRunData> rows(enc.intervals());
+    vector<ulint> col0(enc.intervals());
+    vector<ulint> col1(enc.intervals());
+    for (size_t i = 0; i < enc.intervals(); ++i) {
+        ulint a = static_cast<ulint>(i);
+        ulint b = static_cast<ulint>(i + 100);
+        rows[i] = {a, b};
+        col0[i] = a;
+        col1[i] = b;
+    }
+
+    Enc enc_rows = enc;
+    Enc enc_cols = enc;
+    Enc enc_cols_src = enc;
+    RP kept_rows(enc, rows);
+    // Lvalue constructor must leave the encoding readable.
+    assert(enc.get_length(0) == kept_rows.get_length(0));
+    assert(enc.intervals() == kept_rows.intervals());
+    RP consumed_rows(std::move(enc_rows), vector<TestRunData>(rows));
+    assert_same_navigation(kept_rows, consumed_rows);
+
+    std::array<vector<ulint>, 2> cols{col0, col1};
+    std::array<vector<ulint>, 2> cols_copy = cols;
+    RP kept_cols(enc_cols_src, cols);
+    RP consumed_cols(std::move(enc_cols), std::move(cols_copy));
+    assert_same_navigation(kept_cols, consumed_cols);
+
+    Enc enc_empty = enc;
+    Enc enc_empty_src = enc;
+    move_permutation<true> kept_empty(enc_empty_src);
+    assert(enc_empty_src.get_length(0) == kept_empty.get_length(0));
+    move_permutation<true> consumed_empty(std::move(enc_empty));
+    assert(consumed_empty.domain() == kept_empty.domain());
+    assert(consumed_empty.intervals() == kept_empty.intervals());
+    auto a = kept_empty.first();
+    auto b = consumed_empty.first();
+    for (int step = 0; step < 5; ++step) {
+        a = kept_empty.next(a);
+        b = consumed_empty.next(b);
+        assert(a.idx == b.idx);
+        assert(a.interval == b.interval);
+        assert(a.offset == b.offset);
+    }
+}
+
 int main() {
     test_runperm_separated_absolute_basic_mapping_and_run_data();
     test_column_run_data_matches_row_path();
     test_runperm_up_down_navigation();
     test_runperm_serialize_roundtrip_separated_absolute();
     test_runperm_next_with_steps_and_pred_succ();
+    test_consuming_encoding_ctor_matches_const_ctor();
 
     std::cout << "permutation unit tests passed" << std::endl;
     return 0;

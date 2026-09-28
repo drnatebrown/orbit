@@ -71,6 +71,18 @@ public:
         return static_cast<ulint>(alphabet_.size());
     }
 
+protected:
+    template<typename, bool, bool, bool, typename,
+             template<typename, template<typename> class> class,
+             template<typename> class>
+    friend class orbit::permutation_impl;
+
+    // Also drops run heads. find_structure copies them into the character column first.
+    void drop_storage() {
+        base::drop_storage();
+        heads_.clear();
+    }
+
 private:
     alphabet_t alphabet_;
     int_vector_t heads_;

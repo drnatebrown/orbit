@@ -425,6 +425,70 @@ static void test_from_permutation_and_split_run_data() {
     assert(new_idx == perm_split.intervals());
 }
 
+static void assert_same_encoding(test_permutation& a, test_permutation& b) {
+    assert(a.domain() == b.domain());
+    assert(a.runs() == b.runs());
+    assert(a.intervals() == b.intervals());
+    assert(a.max_length() == b.max_length());
+    for (size_t i = 0; i < a.intervals(); ++i) {
+        assert(a.get_length(i) == b.get_length(i));
+        assert(a.get_img_rank_inv(i) == b.get_img_rank_inv(i));
+    }
+}
+
+static void test_from_lengths_and_img_rank_inv_rvalue() {
+    const vector<ulint> lengths = {2, 3, 1, 2, 2, 1, 1, 1, 3};
+    const ulint domain = 16;
+    const ulint max_length = 3;
+    const size_t runs = lengths.size();
+    const uchar needed = bit_width(static_cast<ulint>(runs - 1));
+
+    vector<ulint> ranks(runs);
+    for (size_t i = 0; i < runs; ++i) {
+        ranks[i] = static_cast<ulint>(i);
+    }
+
+    test_int_vector exact_lvalue(runs, needed);
+    test_int_vector exact_rvalue(runs, needed);
+    test_int_vector wide_lvalue(runs, static_cast<uchar>(needed + 4));
+    test_int_vector wide_rvalue(runs, static_cast<uchar>(needed + 4));
+    for (size_t i = 0; i < runs; ++i) {
+        exact_lvalue[i] = ranks[i];
+        exact_rvalue[i] = ranks[i];
+        wide_lvalue[i] = ranks[i];
+        wide_rvalue[i] = ranks[i];
+    }
+
+    auto kept_exact = test_permutation::from_lengths_and_img_rank_inv(
+        lengths, exact_lvalue, domain, max_length, NO_SPLITTING);
+    auto moved_exact = test_permutation::from_lengths_and_img_rank_inv(
+        lengths, std::move(exact_rvalue), domain, max_length, NO_SPLITTING);
+    assert_same_encoding(kept_exact, moved_exact);
+
+    auto kept_wide = test_permutation::from_lengths_and_img_rank_inv(
+        lengths, wide_lvalue, domain, max_length, DEFAULT_SPLITTING);
+    auto moved_wide = test_permutation::from_lengths_and_img_rank_inv(
+        lengths, std::move(wide_rvalue), domain, max_length, DEFAULT_SPLITTING);
+    assert_same_encoding(kept_wide, moved_wide);
+
+    // Narrower than bit_width(runs - 1): values are copied and the source is cleared.
+    test_int_vector narrow(runs, 1);
+    test_int_vector narrow_lvalue(runs, 1);
+    auto kept_narrow = test_permutation::from_lengths_and_img_rank_inv(
+        lengths, narrow_lvalue, domain, max_length, NO_SPLITTING);
+    auto moved_narrow = test_permutation::from_lengths_and_img_rank_inv(
+        lengths, std::move(narrow), domain, max_length, NO_SPLITTING);
+    assert_same_encoding(kept_narrow, moved_narrow);
+    assert(narrow.size() == 0);
+
+    // A non-packed rvalue still uses the const-ref factory and is not cleared.
+    vector<ulint> plain = ranks;
+    auto from_plain = test_permutation::from_lengths_and_img_rank_inv(
+        lengths, std::move(plain), domain, max_length, NO_SPLITTING);
+    assert(plain.size() == ranks.size());
+    assert(from_plain.get_img_rank_inv(runs - 1) == ranks.back());
+}
+
 int main() {
     test_inverse_permutation();
     test_permutation_intervals_trivial_and_runs();
@@ -432,6 +496,7 @@ int main() {
     test_invertible_no_splitting_applies_union_split();
     test_all_construction_paths_no_splitting();
     test_from_permutation_and_split_run_data();
+    test_from_lengths_and_img_rank_inv_rvalue();
 
     std::cout << "permutation tests passed" << std::endl;
     return 0;
