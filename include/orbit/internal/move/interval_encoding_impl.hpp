@@ -371,7 +371,7 @@ protected:
     template<typename container1_t>
     void init_img_rank_inv(const container1_t& lengths, int_vector_t&& img_rank_inv) {
         uchar length_bits = bit_width(this->max_length_);
-        const uchar img_rank_inv_bits = bit_width(this->runs_ - 1);
+        uchar img_rank_inv_bits = bit_width(this->runs_ - 1);
 
         int_vector_t curr_lengths(this->runs_, length_bits);
         for (size_t i = 0; i < this->runs_; ++i) {

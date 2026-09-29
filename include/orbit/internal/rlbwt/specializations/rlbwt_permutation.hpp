@@ -45,16 +45,16 @@ protected:
     : rlbwt_permutation(enc, std::vector<data_tuple>(enc.intervals())) {}
 
     // Rvalue encoding. Alphabet is copied before packed vectors are dropped.
-    template<typename Enc,
+    template<typename rlbwt_interval_encoding_impl_t,
              typename dc = data_columns_t,
              std::enable_if_t<std::is_same_v<dc, empty_data_columns> &&
-                              !std::is_lvalue_reference_v<Enc> &&
-                              is_interval_encoding_type<std::decay_t<Enc>>::value, int> = 0>
-    rlbwt_permutation(Enc&& enc) {
-        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<Enc>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
+                              !std::is_lvalue_reference_v<rlbwt_interval_encoding_impl_t> &&
+                              is_interval_encoding_type<std::decay_t<rlbwt_interval_encoding_impl_t>>::value, int> = 0>
+    rlbwt_permutation(rlbwt_interval_encoding_impl_t&& enc) {
+        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<rlbwt_interval_encoding_impl_t>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
         const size_t n = enc.intervals();
         alphabet_ = enc.get_alphabet();
-        base::build_from_interval_encoding_consume(std::move(enc), std::vector<data_tuple>(n));
+        base::build_from_interval_encoding(std::move(enc), std::vector<data_tuple>(n));
     }
 
     template<typename dc = data_columns_t,
@@ -81,13 +81,13 @@ protected:
     }
 
     // Both arguments are rvalues. Alphabet is copied before packed vectors are dropped.
-    template<typename Enc,
-             std::enable_if_t<!std::is_lvalue_reference_v<Enc> &&
-                              is_interval_encoding_type<std::decay_t<Enc>>::value, int> = 0>
-    rlbwt_permutation(Enc&& enc, std::vector<data_tuple>&& run_data) {
-        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<Enc>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
+    template<typename rlbwt_interval_encoding_impl_t,
+             std::enable_if_t<!std::is_lvalue_reference_v<rlbwt_interval_encoding_impl_t> &&
+                              is_interval_encoding_type<std::decay_t<rlbwt_interval_encoding_impl_t>>::value, int> = 0>
+    rlbwt_permutation(rlbwt_interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data) {
+        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<rlbwt_interval_encoding_impl_t>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
         alphabet_ = enc.get_alphabet();
-        base::build_from_interval_encoding_consume(std::move(enc), std::move(run_data));
+        base::build_from_interval_encoding(std::move(enc), std::move(run_data));
     }
 
     template<typename container1_t, typename container2_t>
@@ -122,14 +122,14 @@ protected:
     }
 
     // Both arguments are rvalues. Alphabet is copied before packed vectors are dropped.
-    template<typename Enc, typename ColContainer,
+    template<typename rlbwt_interval_encoding_impl_t, typename ColContainer,
              std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer> &&
-                              !std::is_lvalue_reference_v<Enc> &&
-                              is_interval_encoding_type<std::decay_t<Enc>>::value, int> = 0>
-    rlbwt_permutation(Enc&& enc, std::array<ColContainer, num_run_cols>&& run_cols) {
-        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<Enc>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
+                              !std::is_lvalue_reference_v<rlbwt_interval_encoding_impl_t> &&
+                              is_interval_encoding_type<std::decay_t<rlbwt_interval_encoding_impl_t>>::value, int> = 0>
+    rlbwt_permutation(rlbwt_interval_encoding_impl_t&& enc, std::array<ColContainer, num_run_cols>&& run_cols) {
+        static_assert(std::is_same_v<alphabet_t, typename std::decay_t<rlbwt_interval_encoding_impl_t>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
         alphabet_ = enc.get_alphabet();
-        base::build_from_interval_encoding_columns_consume(std::move(enc), std::move(run_cols));
+        base::build_from_interval_encoding_columns(std::move(enc), std::move(run_cols));
     }
 
     template<typename container1_t, typename container2_t, typename ColContainer,
@@ -173,7 +173,6 @@ protected:
     }
 
     static rlbwt_permutation from_move_structure(move_structure_perm &&ms, std::vector<data_tuple> &run_data) {
-        assert(run_data.size() == ms.size());
         static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed move structure if integrating user data with move structure");
         rlbwt_permutation result(std::move(ms));
         auto run_cols_widths = result.get_data_cols_widths(run_data);
@@ -183,7 +182,6 @@ protected:
 
     template<typename ColContainer, std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
     static rlbwt_permutation from_move_structure(move_structure_perm &&ms, const std::array<ColContainer, num_run_cols>& run_cols) {
-        assert(base::run_columns_rows(run_cols) == ms.size());
         static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed move structure if integrating user data with move structure");
         rlbwt_permutation result(std::move(ms));
         auto run_cols_widths = result.get_data_cols_widths(run_cols);
