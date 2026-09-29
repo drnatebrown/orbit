@@ -88,6 +88,13 @@ public:
     }
     [[nodiscard]] const std::array<uchar, num_cols>& get_widths() const noexcept { return widths; }
 
+    void clear() noexcept {
+        num_rows = 0;
+        byte_vector_width = 0;
+        data.clear();
+        data.shrink_to_fit();
+    }
+
     size_t serialize(std::ostream &out) {
         size_t written_bytes = 0;
 

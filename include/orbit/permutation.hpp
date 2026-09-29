@@ -94,6 +94,9 @@ using permutation_integrated_absolute = permutation<data_columns_t, true, true>;
      // !!!       For this reason, splitting is turned off by default when using the simplified interface.
 *    permutation(const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const std::vector<data_tuple> &run_data, split_params split_params = NO_SPLITTING);
 *    permutation(const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const split_params &split_params, const std::vector<data_tuple> &run_data);
+*    // Column-major alternative: std::array<ColContainer, data_columns::COUNT> where ColContainer
+*    // supports size() and operator[](interval) -> ulint (for example int_vector or vector<ulint>).
+*    // run_cols[c][i] is column c of interval i. The caller chooses the container width.
 *
 *    // === Splitting Constructor ===
 *    // interval_encoding -> object built by passing lengths, images to interval_encoding constructor
@@ -130,6 +133,9 @@ using permutation_integrated_absolute = permutation<data_columns_t, true, true>;
 *    ulint get(size_t i) const; // Get value of run data column for interval i
 *    ulint get_length(position pos) const; // Get length of interval containing position
 *    ulint get_length(size_t i) const; // Get length of interval i
+*    // Absolute positions only (store_absolute_positions = true). i == intervals() returns the domain.
+*    ulint get_start(position pos) const; // Get absolute start of the interval containing position
+*    ulint get_start(size_t i) const; // Get absolute start of interval i
 *
 *    // === Search methods ===
 *    template<data_columns_t col>

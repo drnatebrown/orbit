@@ -3,6 +3,7 @@
 
 #include "orbit/rlbwt.hpp"
 
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <vector>
@@ -332,6 +333,51 @@ void test_bwt_to_rlbwt_basic() {
     }
 }
 
+void test_consuming_lf_encoding_matches_const_ctor() {
+    vector<uchar> heads =       {'T','C','G','A','T', 1 ,'A','T','A'};
+    vector<ulint> lengths  =    { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
+
+    auto enc = rlbwt_interval_encoding<>::lf_interval_encoding(heads, lengths, NO_SPLITTING);
+    auto enc_empty = enc;
+    lf_move<> kept_empty(enc);
+    assert(enc.get_heads().size() == kept_empty.intervals());
+    lf_move<> consumed_empty(std::move(enc_empty));
+    assert(consumed_empty.domain() == kept_empty.domain());
+    assert(consumed_empty.intervals() == kept_empty.intervals());
+    for (size_t i = 0; i < kept_empty.intervals(); ++i) {
+        assert(consumed_empty.get_character(static_cast<ulint>(i)) == kept_empty.get_character(static_cast<ulint>(i)));
+    }
+
+    enum class RunCols { V, COUNT };
+    using Row = std::array<ulint, 1>;
+    vector<Row> rows(enc.intervals());
+    vector<ulint> col(enc.intervals());
+    for (size_t i = 0; i < rows.size(); ++i) {
+        rows[i] = {static_cast<ulint>(i + 3)};
+        col[i] = static_cast<ulint>(i + 3);
+    }
+    auto enc_rows = enc;
+    vector<Row> rows_copy = rows;
+    lf_permutation<RunCols> kept_rows(enc, rows);
+    lf_permutation<RunCols> consumed_rows(std::move(enc_rows), std::move(rows_copy));
+
+    auto enc_cols = enc;
+    auto enc_cols_move = enc;
+    std::array<vector<ulint>, 1> cols{col};
+    std::array<vector<ulint>, 1> cols_copy = cols;
+    lf_permutation<RunCols> kept_cols(enc_cols, cols);
+    lf_permutation<RunCols> consumed_cols(std::move(enc_cols_move), std::move(cols_copy));
+
+    assert(consumed_rows.domain() == kept_rows.domain());
+    assert(consumed_cols.intervals() == kept_cols.intervals());
+    for (size_t i = 0; i < kept_rows.intervals(); ++i) {
+        assert(consumed_rows.get_character(static_cast<ulint>(i)) == kept_rows.get_character(static_cast<ulint>(i)));
+        assert(consumed_rows.get<RunCols::V>(static_cast<ulint>(i)) == kept_rows.get<RunCols::V>(static_cast<ulint>(i)));
+        assert(consumed_cols.get_character(static_cast<ulint>(i)) == kept_cols.get_character(static_cast<ulint>(i)));
+        assert(consumed_cols.get<RunCols::V>(static_cast<ulint>(i)) == static_cast<ulint>(i + 3));
+    }
+}
+
 int main() {
     test_move_lf_wrapper_equivalence();
     test_runperm_lf_wrapper_equivalence();
@@ -343,6 +389,7 @@ int main() {
     test_runpermlf_construct_from_precomputed_permutation_no_splitting();
     test_runpermlf_construct_from_precomputed_permutation_with_splitting();
     test_bwt_to_rlbwt_basic();
+    test_consuming_lf_encoding_matches_const_ctor();
 
     std::cout << "permutation_lf_fl unit tests passed" << std::endl;
     return 0;

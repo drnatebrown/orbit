@@ -90,6 +90,15 @@ struct invertible_storage<true, int_vector_t> {
     int_vector_t is_inv_interval;
 };
 
+template<typename data_columns_t,
+         bool integrated_move_structure,
+         bool store_absolute_positions,
+         bool exponential_search,
+         typename base_columns_t,
+         template<typename, template<typename> class> class move_structure_t,
+         template<typename> class table_t>
+class permutation_impl;
+
 template<bool invertible = false, typename int_vector_t = int_vector_aligned>
 class interval_encoding_impl : private invertible_storage<invertible, int_vector_t> {
 public:
@@ -130,6 +139,25 @@ public:
         interval_encoding_impl<invertible, int_vector_t> enc;
         enc.set_initial_values(domain, lengths.size(), max_length, sp);
         enc.init_img_rank_inv(lengths, img_rank_inv);
+        return enc;
+    }
+
+    // Rvalue img_rank_inv. Moved in when size() == runs and get_width() can already
+    // hold ranks in [0, runs). A wider vector is kept as-is (not narrowed). Otherwise
+    // the values are copied and the source is cleared.
+    template<typename container1_t>
+    static interval_encoding_impl<invertible, int_vector_t> from_lengths_and_img_rank_inv(const container1_t& lengths, int_vector_t&& img_rank_inv, const split_params& sp = split_params()) {
+        assert(lengths.size() == img_rank_inv.size());
+        auto [domain, max_length] = sum_and_max(lengths);
+        return from_lengths_and_img_rank_inv(lengths, std::move(img_rank_inv), domain, max_length, sp);
+    }
+
+    template<typename container1_t>
+    static interval_encoding_impl<invertible, int_vector_t> from_lengths_and_img_rank_inv(const container1_t& lengths, int_vector_t&& img_rank_inv, const size_t domain, const ulint max_length, const split_params& sp = split_params()) {
+        assert(lengths.size() == img_rank_inv.size());
+        interval_encoding_impl<invertible, int_vector_t> enc;
+        enc.set_initial_values(domain, lengths.size(), max_length, sp);
+        enc.init_img_rank_inv(lengths, std::move(img_rank_inv));
         return enc;
     }
 
@@ -266,6 +294,23 @@ public:
     }
 
 protected:
+    template<typename, bool, bool, bool, typename,
+             template<typename, template<typename> class> class,
+             template<typename> class>
+    friend class permutation_impl;
+
+    // Drops packed vectors after find_structure has copied them into the move table.
+    // Metadata (domain, runs, intervals, max length, split params) stays.
+    // get_length / get_img_rank_inv are unusable after this. Not a public API.
+    void drop_storage() {
+        lengths.clear();
+        img_rank_inv.clear();
+        if constexpr (invertible) {
+            this->is_fwd_interval.clear();
+            this->is_inv_interval.clear();
+        }
+    }
+
     int_vector_t lengths;
     int_vector_t img_rank_inv;
     split_params split_params_;
@@ -312,6 +357,38 @@ protected:
         for (size_t i = 0; i < this->runs_; ++i) {
             curr_lengths[i] = lengths[i];
             curr_img_rank_inv[i] = img_rank_inv[i];
+        }
+
+        ulint new_max_length = 0;
+        apply_splitting(curr_lengths, curr_img_rank_inv, new_max_length);
+
+        this->lengths = std::move(curr_lengths);
+        this->img_rank_inv = std::move(curr_img_rank_inv);
+        this->max_length_ = new_max_length;
+        this->intervals_ = this->lengths.size();
+    }
+
+    template<typename container1_t>
+    void init_img_rank_inv(const container1_t& lengths, int_vector_t&& img_rank_inv) {
+        uchar length_bits = bit_width(this->max_length_);
+        uchar img_rank_inv_bits = bit_width(this->runs_ - 1);
+
+        int_vector_t curr_lengths(this->runs_, length_bits);
+        for (size_t i = 0; i < this->runs_; ++i) {
+            curr_lengths[i] = lengths[i];
+        }
+
+        // Adopt when the packed vector already has one entry per run and is wide
+        // enough for ranks in [0, runs). Wider than necessary is kept (not narrowed).
+        int_vector_t curr_img_rank_inv;
+        if (img_rank_inv.size() == this->runs_ && img_rank_inv.get_width() >= img_rank_inv_bits) {
+            curr_img_rank_inv = std::move(img_rank_inv);
+        } else {
+            curr_img_rank_inv = int_vector_t(this->runs_, img_rank_inv_bits);
+            for (size_t i = 0; i < this->runs_; ++i) {
+                curr_img_rank_inv[i] = img_rank_inv[i];
+            }
+            img_rank_inv.clear();
         }
 
         ulint new_max_length = 0;

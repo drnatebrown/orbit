@@ -7,7 +7,15 @@
 #include "orbit/internal/move/move_structure_impl.hpp"
 #include "orbit/internal/perm/data_columns.hpp"
 
+#include <type_traits>
+
 namespace orbit {
+
+template<typename T, typename = void>
+struct is_interval_encoding_type : std::false_type {};
+
+template<typename T>
+struct is_interval_encoding_type<T, std::void_t<decltype(T::invertible_tag)>> : std::true_type {};
 
 constexpr bool DEFAULT_INTEGRATED_MOVE_STRUCTURE = false;
 constexpr bool DEFAULT_STORE_ABSOLUTE_POSITIONS = false;
@@ -88,6 +96,18 @@ public:
              std::enable_if_t<std::is_same_v<dc, empty_data_columns>, int> = 0>
     permutation_impl(const interval_encoding_impl_t& enc) 
     : permutation_impl(enc, std::vector<data_tuple>(enc.intervals())) {}
+
+    // Rvalue encoding: build the move table, then drop packed encoding vectors
+    // before attaching run data. Named lvalues keep the const-ref constructor.
+    template<typename interval_encoding_impl_t,
+             class dc = data_columns_t,
+             std::enable_if_t<std::is_same_v<dc, empty_data_columns> &&
+                              !std::is_lvalue_reference_v<interval_encoding_impl_t> &&
+                              is_interval_encoding_type<std::decay_t<interval_encoding_impl_t>>::value, int> = 0>
+    permutation_impl(interval_encoding_impl_t&& enc) {
+        const size_t n = enc.intervals();
+        build_from_interval_encoding(std::move(enc), std::vector<data_tuple>(n));
+    }
     
     // Constructor from lengths and interval permutation
     template<typename container1_t, typename container2_t,
@@ -100,6 +120,14 @@ public:
     template<typename interval_encoding_impl_t>
     permutation_impl(const interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data) {
         build_from_interval_encoding(enc, run_data);
+    }
+
+    // Both arguments are rvalues. See the one-argument overload above.
+    template<typename interval_encoding_impl_t,
+             std::enable_if_t<!std::is_lvalue_reference_v<interval_encoding_impl_t> &&
+                              is_interval_encoding_type<std::decay_t<interval_encoding_impl_t>>::value, int> = 0>
+    permutation_impl(interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data) {
+        build_from_interval_encoding(std::move(enc), std::move(run_data));
     }
 
     /**
@@ -143,6 +171,38 @@ public:
         build_from_lengths_and_images(lengths, images, sp, nullptr, std::move(get_run_cols_data));
     }
 
+    /**
+     * Column-major run data. run_cols[c][i] is column c of interval i.
+     * Each column container must support size() and operator[](i) -> ulint.
+     * Packing is the caller's choice of container (int_vector, vector<ulint>, ...).
+     */
+    template<typename interval_encoding_impl_t, typename ColContainer,
+             std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    permutation_impl(const interval_encoding_impl_t& enc, const std::array<ColContainer, num_run_cols>& run_cols) {
+        build_from_interval_encoding_columns(enc, run_cols);
+    }
+
+    // Both arguments are rvalues. See the one-argument overload above.
+    template<typename interval_encoding_impl_t, typename ColContainer,
+             std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer> &&
+                              !std::is_lvalue_reference_v<interval_encoding_impl_t> &&
+                              is_interval_encoding_type<std::decay_t<interval_encoding_impl_t>>::value, int> = 0>
+    permutation_impl(interval_encoding_impl_t&& enc, std::array<ColContainer, num_run_cols>&& run_cols) {
+        build_from_interval_encoding_columns(std::move(enc), std::move(run_cols));
+    }
+
+    template<typename container1_t, typename container2_t, typename ColContainer,
+             std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    permutation_impl(const container1_t &lengths, const container2_t &images, const std::array<ColContainer, num_run_cols>& run_cols)
+        : permutation_impl(lengths, images, NO_SPLITTING, run_cols) {}
+
+    template<typename container1_t, typename container2_t, typename ColContainer,
+             std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    permutation_impl(const container1_t &lengths, const container2_t &images, const split_params &sp, const std::array<ColContainer, num_run_cols>& run_cols) {
+        auto enc = interval_encoding_t::from_lengths_and_images(lengths, images, sp);
+        build_from_encoding_and_columns(enc, lengths, run_cols);
+    }
+
     // from pre-computed table (move semantics) for advanced users with integrated move structure
     static permutation_impl from_structure(packed_vector<columns> &&structure, const size_t domain, const size_t runs) {
         static_assert(integrated_move_structure, "Cannot construct permutation with pre-computed permutation structure if not integrating user data with move structure");
@@ -152,8 +212,18 @@ public:
     // from pre-computed table (move semantics) for advanced users without integrated move structure
     static permutation_impl from_structure(packed_vector<base_columns> &&structure, std::vector<data_tuple> &run_data, const size_t domain, const size_t runs) {
         static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed permutation structure if integrating user data with move structure");
-        auto result = permutation_impl(move_structure_perm(std::move(structure), domain, runs));
-        result.populate_run_data(std::move(structure), run_data);
+        permutation_impl result(move_structure_perm(std::move(structure), domain, runs));
+        auto run_cols_widths = result.get_data_cols_widths(run_data);
+        result.fill_separated_data(run_data, run_cols_widths);
+        return result;
+    }
+
+    template<typename ColContainer, std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    static permutation_impl from_structure(packed_vector<base_columns> &&structure, const std::array<ColContainer, num_run_cols>& run_cols, const size_t domain, const size_t runs) {
+        static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed permutation structure if integrating user data with move structure");
+        permutation_impl result(move_structure_perm(std::move(structure), domain, runs));
+        auto run_cols_widths = result.get_data_cols_widths(run_cols);
+        result.fill_separated_data(run_cols, run_cols_widths);
         return result;
     }
 
@@ -163,11 +233,19 @@ public:
     }
 
     static permutation_impl from_move_structure(move_structure_perm &&ms, std::vector<data_tuple> &run_data) {
-        assert(run_data.size() == ms.size());
         static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed move structure if integrating user data with move structure");
-        auto result = permutation_impl(std::move(ms));
+        permutation_impl result(std::move(ms));
         auto run_cols_widths = result.get_data_cols_widths(run_data);
         result.fill_separated_data(run_data, run_cols_widths);
+        return result;
+    }
+
+    template<typename ColContainer, std::enable_if_t<(num_run_cols > 0) && std::is_object_v<ColContainer>, int> = 0>
+    static permutation_impl from_move_structure(move_structure_perm &&ms, const std::array<ColContainer, num_run_cols>& run_cols) {
+        static_assert(!integrated_move_structure, "Cannot construct permutation with pre-computed move structure if integrating user data with move structure");
+        permutation_impl result(std::move(ms));
+        auto run_cols_widths = result.get_data_cols_widths(run_cols);
+        result.fill_separated_data(run_cols, run_cols_widths);
         return result;
     }
 
@@ -383,6 +461,15 @@ public:
     ulint get_length(position position) const {
         return get_length(position.interval);
     }
+
+    template<bool absolute = store_absolute_positions, std::enable_if_t<absolute, int> = 0>
+    ulint get_start(ulint interval) const {
+        return move_structure.get_start(interval);
+    }
+    template<bool absolute = store_absolute_positions, std::enable_if_t<absolute, int> = 0>
+    ulint get_start(position position) const {
+        return get_start(position.interval);
+    }
     
     split_params get_split_params() const {
         return split_params_;
@@ -419,14 +506,74 @@ public:
     }
 
 protected:
+    explicit permutation_impl(move_structure_perm ms) : move_structure(std::move(ms)) {}
+
     // OrBit PermuTation
     static constexpr std::array<char, MAGIC_BYTES> MAGIC = {'O', 'B', 'P', 'T'};
 
     move_structure_perm move_structure;
     split_params split_params_;
 
+    template<typename ColContainer>
+    static size_t run_columns_rows(const std::array<ColContainer, num_run_cols>& cols) {
+        static_assert(num_run_cols > 0, "Column run data requires data columns");
+        const size_t n = cols[0].size();
+        for (size_t c = 1; c < num_run_cols; ++c) {
+            if (cols[c].size() != n) {
+                throw std::invalid_argument("Run data columns must have equal length");
+            }
+        }
+        return n;
+    }
+
+    static void check_run_rows_match_structure(size_t run_rows, size_t structure_rows) {
+        if (run_rows != structure_rows) {
+            throw std::invalid_argument("Run data size must match the number of intervals in the move structure");
+        }
+    }
+
+    template<typename ColContainer>
+    static data_tuple row_from_columns(const std::array<ColContainer, num_run_cols>& cols, size_t row) {
+        data_tuple run_row{};
+        for (size_t c = 0; c < num_run_cols; ++c) {
+            run_row[c] = static_cast<ulint>(cols[c][row]);
+        }
+        return run_row;
+    }
+
+    // Lvalues only. An rvalue encoding selects the by-value overload, which drops packed vectors.
+    template<typename interval_encoding_impl_t,
+             std::enable_if_t<std::is_lvalue_reference_v<interval_encoding_impl_t>, int> = 0>
+    void build_from_interval_encoding(interval_encoding_impl_t&& enc, const std::vector<data_tuple> &run_data) {
+        build_from_interval_encoding_impl(enc, run_data, static_cast<std::decay_t<interval_encoding_impl_t>*>(nullptr));
+    }
+
+    template<typename interval_encoding_impl_t,
+             std::enable_if_t<!std::is_lvalue_reference_v<interval_encoding_impl_t>, int> = 0>
+    void build_from_interval_encoding(interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data) {
+        using encoding_t = std::decay_t<interval_encoding_impl_t>;
+        encoding_t owned(std::move(enc));
+        std::vector<data_tuple> owned_data(std::move(run_data));
+        build_from_interval_encoding_impl(owned, owned_data, &owned);
+    }
+
+    template<typename interval_encoding_impl_t, typename ColContainer,
+             std::enable_if_t<std::is_lvalue_reference_v<interval_encoding_impl_t>, int> = 0>
+    void build_from_interval_encoding_columns(interval_encoding_impl_t&& enc, const std::array<ColContainer, num_run_cols>& run_cols) {
+        build_from_interval_encoding_columns_impl(enc, run_cols, static_cast<std::decay_t<interval_encoding_impl_t>*>(nullptr));
+    }
+
+    template<typename interval_encoding_impl_t, typename ColContainer,
+             std::enable_if_t<!std::is_lvalue_reference_v<interval_encoding_impl_t>, int> = 0>
+    void build_from_interval_encoding_columns(interval_encoding_impl_t&& enc, std::array<ColContainer, num_run_cols>&& run_cols) {
+        using encoding_t = std::decay_t<interval_encoding_impl_t>;
+        encoding_t owned(std::move(enc));
+        std::array<ColContainer, num_run_cols> owned_cols(std::move(run_cols));
+        build_from_interval_encoding_columns_impl(owned, owned_cols, &owned);
+    }
+
     template<typename interval_encoding_impl_t>
-    void build_from_interval_encoding(const interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data) {
+    void build_from_interval_encoding_impl(const interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data, interval_encoding_impl_t* drop_enc) {
         // Plain permutations may take an invertible encoding (e.g. after
         // union splitting); invertible permutations still require one.
         static_assert(!cols_traits::INVERTIBLE ||
@@ -435,6 +582,9 @@ protected:
                       "interval encoding");
         split_params_ = enc.get_split_params();
         packed_vector<base_columns> base_structure = move_structure_base::find_structure(enc);
+        if (drop_enc != nullptr) {
+            drop_enc->drop_storage();
+        }
         if (run_data.size() == enc.intervals()) {
             populate_structure(std::move(base_structure), run_data, enc.domain(), enc.runs());
         }
@@ -442,6 +592,40 @@ protected:
             throw std::invalid_argument("Run data size is same as number of runs, not intervals after splitting; avoid splitting, manually split run data, or use permutation copy split.");
         } else {
             throw std::invalid_argument("Run data size must be the same as the number of intervals (user defined splits) or number of runs (no splitting).");
+        }
+    }
+
+    template<typename interval_encoding_impl_t, typename ColContainer>
+    void build_from_interval_encoding_columns_impl(const interval_encoding_impl_t& enc, const std::array<ColContainer, num_run_cols>& run_cols, interval_encoding_impl_t* drop_enc) {
+        static_assert(!cols_traits::INVERTIBLE ||
+                          interval_encoding_impl_t::invertible_tag,
+                      "Invertible permutation requires an invertible "
+                      "interval encoding");
+        split_params_ = enc.get_split_params();
+        packed_vector<base_columns> base_structure = move_structure_base::find_structure(enc);
+        if (drop_enc != nullptr) {
+            drop_enc->drop_storage();
+        }
+        const size_t n = run_columns_rows(run_cols);
+        if (n == enc.intervals()) {
+            populate_structure(std::move(base_structure), run_cols, enc.domain(), enc.runs());
+        }
+        else if (n == enc.runs()) {
+            throw std::invalid_argument("Run data size is same as number of runs, not intervals after splitting; avoid splitting, manually split run data, or use permutation copy split.");
+        } else {
+            throw std::invalid_argument("Run data size must be the same as the number of intervals (user defined splits) or number of runs (no splitting).");
+        }
+    }
+
+    template<typename interval_encoding_impl_t, typename container1_t, typename ColContainer>
+    void build_from_encoding_and_columns(const interval_encoding_impl_t& enc, const container1_t& lengths, const std::array<ColContainer, num_run_cols>& run_cols) {
+        if (enc.get_split_params() == NO_SPLITTING) {
+            build_from_interval_encoding_columns(enc, run_cols);
+        } else {
+            build_from_interval_encoding_callback(enc, lengths, nullptr,
+                [&run_cols](ulint orig_interval, ulint, ulint, ulint) {
+                    return row_from_columns(run_cols, static_cast<size_t>(orig_interval));
+                });
         }
     }
 
@@ -529,6 +713,22 @@ protected:
         return run_cols_widths;
     }
 
+    template<typename ColContainer>
+    std::array<uchar, num_run_cols> get_data_cols_widths(const std::array<ColContainer, num_run_cols>& run_cols) {
+        const size_t n = run_columns_rows(run_cols);
+        std::array<ulint, num_run_cols> max_value{};
+        std::array<uchar, num_run_cols> run_cols_widths{};
+        for (size_t c = 0; c < num_run_cols; ++c) {
+            for (size_t i = 0; i < n; ++i) {
+                max_value[c] = std::max(max_value[c], static_cast<ulint>(run_cols[c][i]));
+            }
+        }
+        for (size_t c = 0; c < num_run_cols; ++c) {
+            run_cols_widths[c] = bit_width(max_value[c]);
+        }
+        return run_cols_widths;
+    }
+
     static std::array<uchar, num_cols> get_widths(const std::array<uchar, num_base_cols>& base_widths, const std::array<uchar, num_run_cols>& run_cols_widths) {
         std::array<uchar, num_cols> widths;
         for (size_t i = 0; i < num_base_cols; ++i) {
@@ -552,14 +752,27 @@ protected:
     }
 
     void fill_separated_data(const std::vector<data_tuple>& run_data, const std::array<uchar, num_run_cols>& run_cols_widths) {
-        this->data_cols = packed_vector<data_columns>(run_data.size(), run_cols_widths);
-        for (size_t i = 0; i < run_data.size(); ++i) {
+        const size_t n = move_structure.intervals();
+        check_run_rows_match_structure(run_data.size(), n);
+        this->data_cols = packed_vector<data_columns>(n, run_cols_widths);
+        for (size_t i = 0; i < n; ++i) {
             this->data_cols.set_row(i, run_data[i]);
+        }
+    }
+
+    template<typename ColContainer>
+    void fill_separated_data(const std::array<ColContainer, num_run_cols>& run_cols, const std::array<uchar, num_run_cols>& run_cols_widths) {
+        const size_t n = move_structure.intervals();
+        check_run_rows_match_structure(run_columns_rows(run_cols), n);
+        this->data_cols = packed_vector<data_columns>(n, run_cols_widths);
+        for (size_t i = 0; i < n; ++i) {
+            this->data_cols.set_row(i, row_from_columns(run_cols, i));
         }
     }
 
     // Sets move structure and run data from the base structure and run data
     void populate_structure(packed_vector<base_columns>&& base_structure, const std::vector<data_tuple>& run_data, const size_t domain, const size_t runs) {
+        check_run_rows_match_structure(run_data.size(), base_structure.size());
         auto run_cols_widths = this->get_data_cols_widths(run_data);
         if constexpr (integrated_move_structure) {
             auto base_widths = base_structure.get_widths();
@@ -576,6 +789,27 @@ protected:
         } else {
             move_structure = move_structure_perm(std::move(base_structure), domain, runs);
             fill_separated_data(run_data, run_cols_widths);
+        }
+    }
+
+    template<typename ColContainer>
+    void populate_structure(packed_vector<base_columns>&& base_structure, const std::array<ColContainer, num_run_cols>& run_cols, const size_t domain, const size_t runs) {
+        check_run_rows_match_structure(run_columns_rows(run_cols), base_structure.size());
+        auto run_cols_widths = this->get_data_cols_widths(run_cols);
+        if constexpr (integrated_move_structure) {
+            auto base_widths = base_structure.get_widths();
+            auto widths = get_widths(base_widths, run_cols_widths);
+
+            packed_vector<columns> final_structure(base_structure.size(), widths);
+            for (size_t i = 0; i < final_structure.size(); ++i) {
+                auto base_row = base_structure.get_row(i);
+                auto row = get_row(base_row, row_from_columns(run_cols, i));
+                final_structure.set_row(i, row);
+            }
+            move_structure = move_structure_perm(std::move(final_structure), domain, runs);
+        } else {
+            move_structure = move_structure_perm(std::move(base_structure), domain, runs);
+            fill_separated_data(run_cols, run_cols_widths);
         }
     }
 };

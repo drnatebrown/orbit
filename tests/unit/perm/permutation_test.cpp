@@ -3,6 +3,7 @@
 
 #include "orbit/permutation.hpp"
 
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <sstream>
@@ -61,8 +62,11 @@ static void test_runperm_separated_absolute_basic_mapping_and_run_data() {
     assert(rp.intervals() == lengths.size());
 
     // Interval-level checks.
+    ulint prefix = 0;
     for (ulint i = 0; i < rp.intervals(); ++i) {
+        assert(rp.get_start(i) == prefix);
         assert(rp.get_length(i) == lengths[i]);
+        prefix += rp.get_length(i);
         assert(rp.get<TestRunCols::VAL1>(i) == static_cast<ulint>(i));
         assert(rp.get<TestRunCols::VAL2>(i) == static_cast<ulint>(i + 100));
         // get_row must match per-column get
@@ -71,10 +75,13 @@ static void test_runperm_separated_absolute_basic_mapping_and_run_data() {
         assert(row[1] == rp.get<TestRunCols::VAL2>(i));
         assert(row == run_data[i]);
     }
+    assert(prefix == domain);
+    assert(rp.get_start(rp.intervals()) == domain);
 
     // position-level mapping: next() must follow perm, and run data must agree.
     for (ulint idx = 0; idx < domain; ++idx) {
         auto pos = make_pos_absolute<RP>(rp, idx);
+        assert(rp.get_start(pos) == rp.get_start(pos.interval));
         auto next_pos = rp.next(pos);
         assert(next_pos.idx == perm[idx]);
 
@@ -209,11 +216,134 @@ static void test_runperm_next_with_steps_and_pred_succ() {
     assert(!pred_missing.has_value());
 }
 
+static void test_column_run_data_matches_row_path() {
+    const vector<ulint> perm = {1, 2, 9, 10, 11, 3, 12, 13, 4, 5, 14, 0, 15, 6, 7, 8};
+    auto [lengths, interval_perm] = get_permutation_intervals(perm);
+
+    vector<TestRunData> rows(lengths.size());
+    vector<ulint> col0(lengths.size());
+    vector<ulint> col1(lengths.size());
+    int_vector packed0(lengths.size(), 8);
+    int_vector packed1(lengths.size(), 8);
+    for (size_t i = 0; i < lengths.size(); ++i) {
+        ulint a = static_cast<ulint>(i);
+        ulint b = static_cast<ulint>(i + 100);
+        rows[i] = {a, b};
+        col0[i] = a;
+        col1[i] = b;
+        packed0[i] = a;
+        packed1[i] = b;
+    }
+
+    std::array<vector<ulint>, 2> wide_cols{col0, col1};
+    std::array<int_vector, 2> packed_cols{std::move(packed0), std::move(packed1)};
+
+    using Sep = permutation_separated_absolute<TestRunCols>;
+    using Integrated = permutation_integrated_absolute<TestRunCols>;
+    Sep row_sep(lengths, interval_perm, rows);
+    Sep wide_sep(lengths, interval_perm, wide_cols);
+    Sep packed_sep(lengths, interval_perm, packed_cols);
+    Integrated row_int(lengths, interval_perm, rows);
+    Integrated packed_int(lengths, interval_perm, packed_cols);
+
+    assert(wide_sep.intervals() == row_sep.intervals());
+    assert(packed_sep.domain() == row_sep.domain());
+    for (ulint i = 0; i < row_sep.intervals(); ++i) {
+        assert(wide_sep.get<TestRunCols::VAL1>(i) == row_sep.get<TestRunCols::VAL1>(i));
+        assert(wide_sep.get<TestRunCols::VAL2>(i) == row_sep.get<TestRunCols::VAL2>(i));
+        assert(packed_sep.get<TestRunCols::VAL1>(i) == row_sep.get<TestRunCols::VAL1>(i));
+        assert(packed_sep.get<TestRunCols::VAL2>(i) == row_sep.get<TestRunCols::VAL2>(i));
+        assert(packed_int.get<TestRunCols::VAL1>(i) == row_int.get<TestRunCols::VAL1>(i));
+        assert(packed_int.get<TestRunCols::VAL2>(i) == row_int.get<TestRunCols::VAL2>(i));
+        assert(wide_sep.get_length(i) == lengths[i]);
+        assert(packed_sep.get_row(i) == row_sep.get_row(i));
+    }
+}
+
+static void assert_same_navigation(permutation_separated_absolute<TestRunCols>& kept,
+                                   permutation_separated_absolute<TestRunCols>& consumed) {
+    assert(consumed.domain() == kept.domain());
+    assert(consumed.runs() == kept.runs());
+    assert(consumed.intervals() == kept.intervals());
+    for (ulint i = 0; i < kept.intervals(); ++i) {
+        assert(consumed.get_length(i) == kept.get_length(i));
+        assert(consumed.get<TestRunCols::VAL1>(i) == kept.get<TestRunCols::VAL1>(i));
+        assert(consumed.get<TestRunCols::VAL2>(i) == kept.get<TestRunCols::VAL2>(i));
+        assert(consumed.get_row(i) == kept.get_row(i));
+    }
+    auto a = kept.first();
+    auto b = consumed.first();
+    assert(a.interval == b.interval);
+    assert(a.offset == b.offset);
+    assert(a.idx == b.idx);
+    for (int step = 0; step < 5; ++step) {
+        a = kept.next(a);
+        b = consumed.next(b);
+        assert(a.interval == b.interval);
+        assert(a.offset == b.offset);
+        assert(a.idx == b.idx);
+    }
+}
+
+static void test_consuming_encoding_ctor_matches_const_ctor() {
+    const vector<ulint> perm = {1, 2, 9, 10, 11, 3, 12, 13, 4, 5, 14, 0, 15, 6, 7, 8};
+    auto [lengths, images] = get_permutation_intervals(perm);
+
+    using Enc = interval_encoding_impl<>;
+    using RP = permutation_separated_absolute<TestRunCols>;
+    Enc enc = Enc::from_lengths_and_images(lengths, images, split_params());
+    vector<TestRunData> rows(enc.intervals());
+    vector<ulint> col0(enc.intervals());
+    vector<ulint> col1(enc.intervals());
+    for (size_t i = 0; i < enc.intervals(); ++i) {
+        ulint a = static_cast<ulint>(i);
+        ulint b = static_cast<ulint>(i + 100);
+        rows[i] = {a, b};
+        col0[i] = a;
+        col1[i] = b;
+    }
+
+    Enc enc_rows = enc;
+    Enc enc_cols = enc;
+    Enc enc_cols_src = enc;
+    RP kept_rows(enc, rows);
+    // Lvalue constructor must leave the encoding readable.
+    assert(enc.get_length(0) == kept_rows.get_length(0));
+    assert(enc.intervals() == kept_rows.intervals());
+    RP consumed_rows(std::move(enc_rows), vector<TestRunData>(rows));
+    assert_same_navigation(kept_rows, consumed_rows);
+
+    std::array<vector<ulint>, 2> cols{col0, col1};
+    std::array<vector<ulint>, 2> cols_copy = cols;
+    RP kept_cols(enc_cols_src, cols);
+    RP consumed_cols(std::move(enc_cols), std::move(cols_copy));
+    assert_same_navigation(kept_cols, consumed_cols);
+
+    Enc enc_empty = enc;
+    Enc enc_empty_src = enc;
+    move_permutation<true> kept_empty(enc_empty_src);
+    assert(enc_empty_src.get_length(0) == kept_empty.get_length(0));
+    move_permutation<true> consumed_empty(std::move(enc_empty));
+    assert(consumed_empty.domain() == kept_empty.domain());
+    assert(consumed_empty.intervals() == kept_empty.intervals());
+    auto a = kept_empty.first();
+    auto b = consumed_empty.first();
+    for (int step = 0; step < 5; ++step) {
+        a = kept_empty.next(a);
+        b = consumed_empty.next(b);
+        assert(a.idx == b.idx);
+        assert(a.interval == b.interval);
+        assert(a.offset == b.offset);
+    }
+}
+
 int main() {
     test_runperm_separated_absolute_basic_mapping_and_run_data();
+    test_column_run_data_matches_row_path();
     test_runperm_up_down_navigation();
     test_runperm_serialize_roundtrip_separated_absolute();
     test_runperm_next_with_steps_and_pred_succ();
+    test_consuming_encoding_ctor_matches_const_ctor();
 
     std::cout << "permutation unit tests passed" << std::endl;
     return 0;
