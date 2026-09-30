@@ -96,7 +96,8 @@ template<typename data_columns_t,
          bool exponential_search,
          typename base_columns_t,
          template<typename, template<typename> class> class move_structure_t,
-         template<typename> class table_t>
+         template<typename> class table_t,
+         bool store_offsets>
 class permutation_impl;
 
 template<bool invertible = false, typename int_vector_t = int_vector_aligned>
@@ -296,7 +297,8 @@ public:
 protected:
     template<typename, bool, bool, bool, typename,
              template<typename, template<typename> class> class,
-             template<typename> class>
+             template<typename> class,
+             bool>
     friend class permutation_impl;
 
     // Drops packed vectors after find_structure has copied them into the move table.

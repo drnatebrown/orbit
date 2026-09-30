@@ -179,10 +179,17 @@ void test_invertible_columns_basic_traits() {
     static_assert(InvRelTraits::POINTER_INV == invertible_columns::POINTER_INV, "POINTER_INV alias mismatch");
     static_assert(InvRelTraits::FWD_INTERVAL == invertible_columns::FWD_INTERVAL, "FWD_INTERVAL alias mismatch");
     static_assert(InvRelTraits::INV_INTERVAL == invertible_columns::INV_INTERVAL, "INV_INTERVAL alias mismatch");
+    static_assert(InvRelTraits::STORE_OFFSETS, "invertible_columns stores offsets");
+    static_assert(InvRelTraits::OFFSET == invertible_columns::OFFSET, "OFFSET alias mismatch");
     static_assert(
         InvRelTraits::NUM_COLS == static_cast<size_t>(invertible_columns::COUNT),
         "NUM_COLS must match invertible_columns::COUNT"
     );
+
+    using ScanTraits = move_cols_traits<invertible_columns_scan>;
+    static_assert(ScanTraits::RELATIVE, "invertible_columns_scan should be relative");
+    static_assert(!ScanTraits::STORE_OFFSETS, "scan columns omit OFFSET");
+    static_assert(ScanTraits::NUM_COLS + 1 == InvRelTraits::NUM_COLS, "scan has one fewer column");
 
     using InvAbsTraits = move_cols_traits<invertible_columns_idx>;
     static_assert(!InvAbsTraits::RELATIVE, "invertible_columns_idx should be absolute");
@@ -216,6 +223,19 @@ void test_invertible_column_switcher_and_switch_columns() {
                   "switch_columns<invertible_columns,true> must yield invertible_columns_idx");
     static_assert(std::is_same<from_rel_rel, invertible_columns>::value,
                   "switch_columns<invertible_columns,false> must yield invertible_columns");
+
+    static_assert(std::is_same<column_switcher<invertible_columns>::with_offsets, invertible_columns>::value,
+                  "with_offsets must stay on the offset schema");
+    static_assert(std::is_same<column_switcher<invertible_columns>::without_offsets, invertible_columns_scan>::value,
+                  "without_offsets must select scan");
+    static_assert(std::is_same<column_switcher<invertible_columns_idx>::without_offsets, invertible_columns_idx_scan>::value,
+                  "absolute without_offsets must select idx scan");
+    static_assert(std::is_same<switch_offset_columns<invertible_columns, false>, invertible_columns_scan>::value,
+                  "switch_offset_columns false must select scan");
+    static_assert(std::is_same<switch_offset_columns<invertible_columns_scan, true>, invertible_columns>::value,
+                  "switch_offset_columns true must select offsets");
+    static_assert(std::is_same<switch_offset_columns<move_columns, false>, move_columns>::value,
+                  "plain columns ignore store_offsets");
 }
 
 void test_invertible_rlbwt_columns_traits_and_switcher() {
@@ -229,10 +249,14 @@ void test_invertible_rlbwt_columns_traits_and_switcher() {
                   "pointer_inv alias mismatch");
     static_assert(rlbwt_inv_rel_traits::CHARACTER == invertible_rlbwt_columns::CHARACTER,
                   "character alias mismatch");
+    static_assert(rlbwt_inv_rel_traits::STORE_OFFSETS, "invertible rlbwt columns store offsets");
+    static_assert(rlbwt_inv_rel_traits::OFFSET == invertible_rlbwt_columns::OFFSET, "offset alias mismatch");
     static_assert(
         rlbwt_inv_rel_traits::NUM_COLS == static_cast<size_t>(invertible_rlbwt_columns::COUNT),
         "num_cols must match invertible_rlbwt_columns::COUNT"
     );
+    static_assert(!move_cols_traits<invertible_rlbwt_columns_scan>::STORE_OFFSETS,
+                  "rlbwt scan columns omit OFFSET");
 
     using rlbwt_inv_abs_traits = move_cols_traits<invertible_rlbwt_columns_idx>;
     static_assert(!rlbwt_inv_abs_traits::RELATIVE, "invertible_rlbwt_columns_idx should be absolute");

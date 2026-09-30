@@ -153,9 +153,10 @@ using permutation_integrated_absolute = permutation<data_columns_t, true, true>;
 
 template<typename data_columns_t = empty_data_columns,
          bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
-         bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS>
-class invertible_permutation : public permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector> {
-    using base = permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector>;
+         bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+class invertible_permutation : public permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, store_offsets> {
+    using base = permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, store_offsets>;
 public:
     using typename base::data_columns;
     using typename base::data_tuple;
@@ -189,8 +190,9 @@ using move_permutation_absolute = move_permutation<true>;
 using move_permutation_relative = move_permutation<false>; // Same as move_permutation<>, the default
 
 // Same for invertible move_permutation
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS>
-using invertible_move_permutation = move_permutation_impl<store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector>;
+template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+using invertible_move_permutation = move_permutation_impl<store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, store_offsets>;
 
 using invertible_move_permutation_absolute = invertible_move_permutation<true>;
 using invertible_move_permutation_relative = invertible_move_permutation<false>; // Same as invertible_move_permutation<>, the default

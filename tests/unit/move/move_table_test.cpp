@@ -242,12 +242,14 @@ void test_invertible_row_relative_basic() {
     row.set<invertible_columns::LENGTH>(length);
     row.set<invertible_columns::POINTER_FWD>(pointer_fwd);
     row.set<invertible_columns::POINTER_INV>(pointer_inv);
+    row.set<invertible_columns::OFFSET>(2);
     row.set<invertible_columns::FWD_INTERVAL>(1);
     row.set<invertible_columns::INV_INTERVAL>(0);
 
     assert(row.get<invertible_columns::LENGTH>() == length);
     assert(row.get<invertible_columns::POINTER_FWD>() == pointer_fwd);
     assert(row.get<invertible_columns::POINTER_INV>() == pointer_inv);
+    assert(row.get<invertible_columns::OFFSET>() == 2);
     assert(row.get<invertible_columns::FWD_INTERVAL>() == 1);
     assert(row.get<invertible_columns::INV_INTERVAL>() == 0);
 }

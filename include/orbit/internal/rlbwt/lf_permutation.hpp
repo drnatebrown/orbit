@@ -16,10 +16,11 @@ template<typename data_columns_t = empty_data_columns,
          typename alphabet_t = nucleotide,
          typename base_columns_t = rlbwt_columns,
          template<typename, template<typename> class> class move_structure_t = rlbwt_move_structure,
-         template<typename> class table_t = move_vector>
-class lf_permutation_impl : public rlbwt_permutation<lf_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t>,
-                         data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t> {
-    using base = rlbwt_permutation<lf_permutation_impl, data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t>;
+         template<typename> class table_t = move_vector,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+class lf_permutation_impl : public rlbwt_permutation<lf_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t, store_offsets>,
+                         data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t, store_offsets> {
+    using base = rlbwt_permutation<lf_permutation_impl, data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t, store_offsets>;
     using rlbwt_interval_encoding_t = typename base::rlbwt_interval_encoding_t;
 public:
     using data_columns = typename base::data_columns;
@@ -50,8 +51,9 @@ template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
          typename alphabet_t = nucleotide,
          typename base_columns_t = rlbwt_columns,
          template<typename, template<typename> class> class move_structure_t = rlbwt_move_structure,
-         template<typename> class table_t = move_vector>
-using lf_move_impl = lf_permutation_impl<empty_data_columns, false, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t>;
+         template<typename> class table_t = move_vector,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+using lf_move_impl = lf_permutation_impl<empty_data_columns, false, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t, store_offsets>;
 
 template<typename alphabet_t=nucleotide>
 using lf_move_impl_default = lf_move_impl<DEFAULT_STORE_ABSOLUTE_POSITIONS, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, rlbwt_columns, rlbwt_move_structure, move_vector>;

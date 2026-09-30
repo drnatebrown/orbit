@@ -114,6 +114,12 @@ struct invertible_table_interface {
     void set_inv_interval(size_t i, bool is_inv) {
         static_cast<derived*>(this)->template set<to_cols(cols_traits::INV_INTERVAL)>(i, static_cast<ulint>(is_inv));
     }
+
+    template <typename C = columns>
+    std::enable_if_t<cols_traits_for<C>::STORE_OFFSETS, void>
+    set_offset(size_t i, ulint o) {
+        static_cast<derived*>(this)->template set<to_cols(cols_traits_for<C>::OFFSET)>(i, o);
+    }
     
     ulint get_primary(size_t i) const {
         return static_cast<const derived*>(this)->template get<to_cols(cols_traits::PRIMARY)>(i);
@@ -145,6 +151,12 @@ struct invertible_table_interface {
 
     bool get_inv_interval(size_t i) const {
         return static_cast<bool>(static_cast<const derived*>(this)->template get<to_cols(cols_traits::INV_INTERVAL)>(i));
+    }
+
+    template <typename C = columns>
+    std::enable_if_t<cols_traits_for<C>::STORE_OFFSETS, ulint>
+    get_offset(size_t i) const {
+        return static_cast<const derived*>(this)->template get<to_cols(cols_traits_for<C>::OFFSET)>(i);
     }
 };
 

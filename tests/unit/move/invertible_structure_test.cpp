@@ -87,7 +87,7 @@ static void assert_build_matches_encoding(
     assert(ms.get_fwd_interval(0));
 }
 
-// Mirrors populate_structure pointer assignments in invertible_structure_impl.
+// Mirrors Mode A populate (destination pointers + single OFFSET).
 static void assert_pointers_match_encoding(
     const invertible_structure_vec& ms,
     const invertible_interval_encoding& enc
@@ -97,15 +97,27 @@ static void assert_pointers_match_encoding(
     size_t img_rank_inv_idx = 0;
     for (size_t i = 0; i < enc.intervals(); ++i) {
         const size_t length = enc.get_length(i);
+        if (img_rank_inv_idx > 0 && output_start_val > input_start_val) {
+            const ulint j_prev = enc.get_img_rank_inv(img_rank_inv_idx - 1);
+            const ulint inv_off = input_start_val - (output_start_val - enc.get_length(j_prev));
+            assert(ms.get_pointer_inv(i) == j_prev);
+            if (!enc.get_is_inv_interval(i)) {
+                assert(ms.get_offset(i) == inv_off);
+            }
+        }
         while (img_rank_inv_idx < enc.intervals() && output_start_val < input_start_val + length) {
-            const ulint img_rank_inv_val = enc.get_img_rank_inv(img_rank_inv_idx);
-            if (enc.get_is_fwd_interval(img_rank_inv_val) && output_start_val == input_start_val) {
-                assert(ms.get_pointer_fwd(img_rank_inv_val) == i);
+            const ulint j = enc.get_img_rank_inv(img_rank_inv_idx);
+            const ulint off = output_start_val - input_start_val;
+            assert(ms.get_pointer_fwd(j) == i);
+            if (off == 0) {
+                assert(ms.get_pointer_inv(i) == j);
             }
-            if (enc.get_is_inv_interval(i) && output_start_val == input_start_val) {
-                assert(ms.get_pointer_inv(i) == img_rank_inv_val);
+            if (!enc.get_is_fwd_interval(j)) {
+                assert(ms.get_offset(j) == off);
+            } else if (enc.get_is_inv_interval(j)) {
+                assert(ms.get_offset(j) == 0);
             }
-            output_start_val += enc.get_length(img_rank_inv_val);
+            output_start_val += enc.get_length(j);
             ++img_rank_inv_idx;
         }
         input_start_val += length;
@@ -297,6 +309,7 @@ static void test_invertible_structure_serialize_roundtrip() {
         assert(loaded.get_pointer_inv(i) == ms.get_pointer_inv(i));
         assert(loaded.get_fwd_interval(i) == ms.get_fwd_interval(i));
         assert(loaded.get_inv_interval(i) == ms.get_inv_interval(i));
+        assert(loaded.get_offset(i) == ms.get_offset(i));
     }
 
     assert_move_fwd_matches_perm(loaded, kRunnyPerm);
@@ -321,6 +334,9 @@ static void test_invertible_structure_widths() {
     assert(w_pointer_inv >= bit_width(ms.intervals()));
     assert(w_fwd_interval == 1);
     assert(w_inv_interval == 1);
+    const uchar w_offset =
+        widths[static_cast<size_t>(move_cols_traits<invertible_columns>::OFFSET)];
+    assert(w_offset == bit_width(enc.max_length()));
 }
 
 // Permutation-level tests for prev() / next() with invertible move columns.
@@ -437,6 +453,47 @@ static void test_invertible_permutation_absolute_exponential_prev() {
     }
 }
 
+static void test_invertible_structure_offset_matches_scan() {
+    const auto enc = make_invertible_encoding(kRunnyPerm);
+    invertible_structure_vec offsets(enc);
+    invertible_structure_vec_scan scan(enc);
+    invertible_structure_tbl offsets_tbl(enc);
+    invertible_structure_tbl_scan scan_tbl(enc);
+
+    assert_pointers_match_encoding(offsets, enc);
+    assert(offsets.intervals() == scan.intervals());
+    for (size_t i = 0; i < offsets.intervals(); ++i) {
+        assert(offsets_tbl.get_pointer_fwd(i) == offsets.get_pointer_fwd(i));
+        assert(offsets_tbl.get_pointer_inv(i) == offsets.get_pointer_inv(i));
+        assert(offsets_tbl.get_offset(i) == offsets.get_offset(i));
+        assert(scan_tbl.get_pointer_fwd(i) == scan.get_pointer_fwd(i));
+        assert(scan_tbl.get_pointer_inv(i) == scan.get_pointer_inv(i));
+    }
+
+    assert_move_fwd_matches_perm(offsets, kRunnyPerm);
+    assert_move_inv_matches_inverse(offsets, kRunnyPerm);
+    assert_move_fwd_matches_perm(scan, kRunnyPerm);
+    assert_move_inv_matches_inverse(scan, kRunnyPerm);
+    assert_move_fwd_matches_perm(offsets_tbl, kRunnyPerm);
+    assert_move_inv_matches_inverse(offsets_tbl, kRunnyPerm);
+    assert_move_fwd_matches_perm(scan_tbl, kRunnyPerm);
+    assert_move_inv_matches_inverse(scan_tbl, kRunnyPerm);
+
+    for (ulint idx = 0; idx < offsets.domain(); ++idx) {
+        auto pos = position_from_index_relative(offsets, idx);
+        auto scan_pos = position_from_index_relative(scan, idx);
+        pos = offsets.move_fwd(pos);
+        scan_pos = scan.move_fwd(scan_pos);
+        assert(global_index_relative(offsets, pos) == global_index_relative(scan, scan_pos));
+
+        pos = position_from_index_relative(offsets, idx);
+        scan_pos = position_from_index_relative(scan, idx);
+        pos = offsets.move_inv(pos);
+        scan_pos = scan.move_inv(scan_pos);
+        assert(global_index_relative(offsets, pos) == global_index_relative(scan, scan_pos));
+    }
+}
+
 static void test_invertible_permutation_up_down() {
     const auto enc = make_invertible_encoding(kSmallPerm);
     invertible_move_perm p(enc);
@@ -471,6 +528,7 @@ int main() {
     test_invertible_structure_small_and_identity_permutations();
     test_invertible_structure_serialize_roundtrip();
     test_invertible_structure_widths();
+    test_invertible_structure_offset_matches_scan();
     test_invertible_permutation_next_prev();
     test_invertible_permutation_next_prev_multi_step();
     test_invertible_permutation_absolute_exponential_prev();

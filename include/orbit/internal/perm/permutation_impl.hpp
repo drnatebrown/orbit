@@ -19,6 +19,7 @@ struct is_interval_encoding_type<T, std::void_t<decltype(T::invertible_tag)>> : 
 
 constexpr bool DEFAULT_INTEGRATED_MOVE_STRUCTURE = false;
 constexpr bool DEFAULT_STORE_ABSOLUTE_POSITIONS = false;
+constexpr bool DEFAULT_STORE_OFFSETS = true; // Invertible only; scan (false) omits the OFFSET column
 constexpr bool DEFAULT_EXPONENTIAL_SEARCH = false; // Whether to use exponential search for next(), only used if store_absolute_positions is true
 
 /* ============================================= Advanced Implemenation ============================================= */
@@ -37,16 +38,18 @@ template<typename data_columns_t = empty_data_columns, // Fields to be stored al
          bool exponential_search = store_absolute_positions && DEFAULT_EXPONENTIAL_SEARCH, // Whether to use exponential search for next() by default, only used if store_absolute_positions is true
          typename base_columns_t = move_columns,
          template<typename, template<typename> class> class move_structure_t = move_structure,
-         template<typename> class table_t = move_vector>
+         template<typename> class table_t = move_vector,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
          // TODO need PackedType option?
 class permutation_impl : separated_data_holder<data_columns_t, integrated_move_structure> {
 protected:
     // Helpful constants for number of base (move permutation information) columns and run (additional data) columns
     static constexpr size_t num_run_cols = static_cast<size_t>(data_columns_t::COUNT);
-    static constexpr size_t num_base_cols = static_cast<size_t>(base_columns_t::COUNT);
 
-    // Switch the base columns to use the correct relative/absolute indexing if needed
-    using base_columns = switch_columns<base_columns_t, store_absolute_positions>;
+    // Switch relative/absolute, then offsets (plain columns use identity with/without_offsets).
+    using base_columns_abs = switch_columns<base_columns_t, store_absolute_positions>;
+    using base_columns = switch_offset_columns<base_columns_abs, store_offsets>;
+    static constexpr size_t num_base_cols = static_cast<size_t>(base_columns::COUNT);
     // Use data_tupleColumns if integrating user data alongside the move structure, otherwise just use the switched columns
     // data_columns_wrapper extends the base_columns traits to include the run data columns
     using columns_t = std::conditional_t<integrated_move_structure, 
@@ -815,8 +818,8 @@ protected:
 };
 
 // A helper alias around permutation_impl without any run data, essentially just a move_structure
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS, bool exponential_search = DEFAULT_EXPONENTIAL_SEARCH, typename base_columns = move_columns, template<typename, template<typename> class> class move_structure_t = move_structure, template<typename> class table_t = move_vector>
-using move_permutation_impl = permutation_impl<empty_data_columns, false, store_absolute_positions, exponential_search, base_columns, move_structure_t, table_t>;
+template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS, bool exponential_search = DEFAULT_EXPONENTIAL_SEARCH, typename base_columns = move_columns, template<typename, template<typename> class> class move_structure_t = move_structure, template<typename> class table_t = move_vector, bool store_offsets = DEFAULT_STORE_OFFSETS>
+using move_permutation_impl = permutation_impl<empty_data_columns, false, store_absolute_positions, exponential_search, base_columns, move_structure_t, table_t, store_offsets>;
 
 } // namespace orbit
 

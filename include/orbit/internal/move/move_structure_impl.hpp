@@ -374,6 +374,18 @@ public:
         return get_inv_interval(pos.interval);
     }
 
+    template <typename C = columns>
+    std::enable_if_t<cols_traits_for<C>::STORE_OFFSETS, ulint>
+    get_offset(size_t i) const {
+        assert(i < this->table.size());
+        return this->table.get_offset(i);
+    }
+    template <typename C = columns>
+    std::enable_if_t<cols_traits_for<C>::STORE_OFFSETS, ulint>
+    inline get_offset(position pos) const {
+        return get_offset(pos.interval);
+    }
+
     // === Position Navigation ===
     template<bool linear=true>
     position move_fwd(position pos) const { return move<true, linear>(pos); }
@@ -399,9 +411,15 @@ public:
         };
         
         ulint new_offset = pos.offset;
-        while (!orig_interval_func(pos.interval)) {
-            --pos.interval;
-            new_offset += this->get_length(pos.interval);
+        if constexpr (cols_traits::STORE_OFFSETS) {
+            if (!orig_interval_func(pos.interval)) {
+                new_offset += get_offset(pos);
+            }
+        } else {
+            while (!orig_interval_func(pos.interval)) {
+                --pos.interval;
+                new_offset += this->get_length(pos.interval);
+            }
         }
 
         if constexpr (cols_traits::RELATIVE) {
@@ -445,6 +463,10 @@ public:
         widths[static_cast<size_t>(cols_traits::FWD_INTERVAL)] = 1;
         widths[static_cast<size_t>(cols_traits::INV_INTERVAL)] = 1;
 
+        if constexpr (cols_traits::STORE_OFFSETS) {
+            widths[static_cast<size_t>(cols_traits::OFFSET)] = bit_width(max_length);
+        }
+
         return widths;
     }
 
@@ -465,16 +487,34 @@ public:
             structure.template set<to_cols(cols_traits::FWD_INTERVAL)>(i, enc.get_is_fwd_interval(i));
             structure.template set<to_cols(cols_traits::INV_INTERVAL)>(i, enc.get_is_inv_interval(i));
 
-            
+            // Previous image overshot into i: π^{-1}(start(i)) lands mid-run in j_prev.
+            if (img_rank_inv_idx > 0 && output_start_val > input_start_val) {
+                const ulint j_prev = enc.get_img_rank_inv(img_rank_inv_idx - 1);
+                const ulint inv_off = input_start_val - (output_start_val - enc.get_length(j_prev));
+                structure.template set<to_cols(cols_traits::POINTER_INV)>(i, j_prev);
+                if constexpr (cols_traits::STORE_OFFSETS) {
+                    if (!enc.get_is_inv_interval(i)) {
+                        structure.template set<to_cols(cols_traits::OFFSET)>(i, inv_off);
+                    }
+                }
+            }
+
             while (img_rank_inv_idx < enc.intervals() && output_start_val < input_start_val + length) {
-                ulint img_rank_inv_val = enc.get_img_rank_inv(img_rank_inv_idx);
-                if (enc.get_is_fwd_interval(img_rank_inv_val) && output_start_val == input_start_val) {
-                    structure.template set<to_cols(cols_traits::POINTER_FWD)>(img_rank_inv_val, i);
+                const ulint j = enc.get_img_rank_inv(img_rank_inv_idx);
+                const ulint off = output_start_val - input_start_val;
+
+                structure.template set<to_cols(cols_traits::POINTER_FWD)>(j, i);
+                if (off == 0) {
+                    structure.template set<to_cols(cols_traits::POINTER_INV)>(i, j);
                 }
-                if (enc.get_is_inv_interval(i) && output_start_val == input_start_val) {
-                    structure.template set<to_cols(cols_traits::POINTER_INV)>(i, img_rank_inv_val);
+
+                if constexpr (cols_traits::STORE_OFFSETS) {
+                    if (!enc.get_is_fwd_interval(j)) {
+                        structure.template set<to_cols(cols_traits::OFFSET)>(j, off);
+                    }
                 }
-                output_start_val += enc.get_length(img_rank_inv_val);
+
+                output_start_val += enc.get_length(j);
                 ++img_rank_inv_idx;
             }
             input_start_val += length;

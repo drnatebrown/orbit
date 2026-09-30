@@ -111,9 +111,10 @@ public:
 template<typename data_columns_t = empty_data_columns,
          bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
          bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-class invertible_lf_permutation : public lf_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector> {
-    using base = lf_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector>;
+         typename alphabet_t = nucleotide,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+class invertible_lf_permutation : public lf_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector, store_offsets> {
+    using base = lf_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector, store_offsets>;
 public:
     using typename base::data_columns;
     using typename base::data_tuple;
@@ -159,8 +160,9 @@ using lf_move_absolute = lf_move<true>;
 using lf_move_relative = lf_move<false>;
 
 template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using invertible_lf_move = lf_move_impl<store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector>;
+         typename alphabet_t = nucleotide,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+using invertible_lf_move = lf_move_impl<store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector, store_offsets>;
 using invertible_lf_move_absolute = invertible_lf_move<true>;
 using invertible_lf_move_relative = invertible_lf_move<false>;
 
@@ -200,9 +202,10 @@ using fl_permutation_integrated_absolute = fl_permutation<data_columns_t, true, 
 template<typename data_columns_t = empty_data_columns,
          bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
          bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-class invertible_fl_permutation : public fl_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector> {
-    using base = fl_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector>;
+         typename alphabet_t = nucleotide,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+class invertible_fl_permutation : public fl_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector, store_offsets> {
+    using base = fl_permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector, store_offsets>;
 public:
     using typename base::data_columns;
     using typename base::data_tuple;
@@ -229,8 +232,9 @@ using fl_move_absolute = fl_move<true>;
 using fl_move_relative = fl_move<false>;
 
 template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS,
-         typename alphabet_t = nucleotide>
-using invertible_fl_move = fl_move_impl<store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector>;
+         typename alphabet_t = nucleotide,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+using invertible_fl_move = fl_move_impl<store_absolute_positions, DEFAULT_EXPONENTIAL_SEARCH, alphabet_t, invertible_rlbwt_columns, rlbwt_move_structure, move_vector, store_offsets>;
 using invertible_fl_move_absolute = invertible_fl_move<true>;
 using invertible_fl_move_relative = invertible_fl_move<false>;
 
@@ -249,15 +253,18 @@ template<typename data_columns_t = empty_data_columns>
 using phi_permutation_integrated = phi_permutation<data_columns_t, true>;
 
 template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE>
-using invertible_phi_permutation = phi_permutation_impl<data_columns_t, integrated_move_structure, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector>;
+         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+using invertible_phi_permutation = phi_permutation_impl<data_columns_t, integrated_move_structure, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, store_offsets>;
 template<typename data_columns_t = empty_data_columns>
 using invertible_phi_permutation_integrated = invertible_phi_permutation<data_columns_t, true>;
 
 // === phi_move ===
 // See above, but no user data.
 using phi_move = phi_move_impl<DEFAULT_EXPONENTIAL_SEARCH, move_columns, move_structure, move_vector>;
-using invertible_phi_move = phi_move_impl<DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector>;
+template<bool store_offsets = DEFAULT_STORE_OFFSETS>
+using invertible_phi_move = phi_move_impl<DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, store_offsets>;
+
 
 // === phi_inv_permutation ===
 // Need to call rlbwt_to_phi_inv(rlbwt_heads, rlbwt_run_lengths) to get interval encoding
@@ -273,15 +280,18 @@ template<typename data_columns_t = empty_data_columns>
 using phi_inv_permutation_integrated = phi_inv_permutation<data_columns_t, true>;
 
 template<typename data_columns_t = empty_data_columns,
-         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE>
-using invertible_phi_inv_permutation = phi_inv_permutation_impl<data_columns_t, integrated_move_structure, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector>;
+         bool integrated_move_structure = DEFAULT_INTEGRATED_MOVE_STRUCTURE,
+         bool store_offsets = DEFAULT_STORE_OFFSETS>
+using invertible_phi_inv_permutation = phi_inv_permutation_impl<data_columns_t, integrated_move_structure, DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, store_offsets>;
 template<typename data_columns_t = empty_data_columns>
 using invertible_phi_inv_permutation_integrated = invertible_phi_inv_permutation<data_columns_t, true>;
 
 // === phi_inv_move ===
 // See above, but no user data.
 using phi_inv_move = phi_inv_move_impl<DEFAULT_EXPONENTIAL_SEARCH, move_columns, move_structure, move_vector>;
-using invertible_phi_inv_move = phi_inv_move_impl<DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector>;
+template<bool store_offsets = DEFAULT_STORE_OFFSETS>
+using invertible_phi_inv_move = phi_inv_move_impl<DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, store_offsets>;
+
 
 } // end namespace orbit::rlbwt
 

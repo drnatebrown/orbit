@@ -213,6 +213,7 @@ static void test_rlbwt_invertible_structure_widths() {
     assert(widths[static_cast<size_t>(ColsTraits::FWD_INTERVAL)] == 1);
     assert(widths[static_cast<size_t>(ColsTraits::INV_INTERVAL)] == 1);
     assert(widths[static_cast<size_t>(ColsTraits::CHARACTER)] == bit_width(enc.sigma() - 1));
+    assert(widths[static_cast<size_t>(ColsTraits::OFFSET)] == bit_width(enc.max_length()));
 }
 
 static void test_rlbwt_move_structure_absolute_chars_and_widths() {

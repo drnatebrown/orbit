@@ -67,12 +67,16 @@ template<>
 struct column_switcher<rlbwt::rlbwt_columns> {
     using relative = rlbwt::rlbwt_columns;
     using absolute = rlbwt::rlbwt_columns_idx;
+    using with_offsets = rlbwt::rlbwt_columns;
+    using without_offsets = rlbwt::rlbwt_columns;
 };
 
 template<>
 struct column_switcher<rlbwt::rlbwt_columns_idx> {
     using relative = rlbwt::rlbwt_columns;
     using absolute = rlbwt::rlbwt_columns_idx;
+    using with_offsets = rlbwt::rlbwt_columns_idx;
+    using without_offsets = rlbwt::rlbwt_columns_idx;
 };
 
 } // namespace orbit
@@ -82,25 +86,45 @@ struct column_switcher<rlbwt::rlbwt_columns_idx> {
 namespace orbit::rlbwt {
 
 enum class invertible_rlbwt_columns {
-    LENGTH, // Length of move interval
-    POINTER_FWD, // Pointer to forward move interval
-    POINTER_INV, // Pointer to inverse move interval
-    // Do not need offset for invertible move structure
-    FWD_INTERVAL, // Interval was originally a forward move interval
-    INV_INTERVAL, // Interval was originally an inverse move interval
-    CHARACTER, // RLBWT Character
-    COUNT // Helper to get the number of columns
+    LENGTH,
+    POINTER_FWD,
+    POINTER_INV,
+    OFFSET,
+    FWD_INTERVAL,
+    INV_INTERVAL,
+    CHARACTER,
+    COUNT
 };
 
 enum class invertible_rlbwt_columns_idx {
-    START, // i is the start of the interval
-    POINTER_FWD, // Pointer to forward move interval
-    POINTER_INV, // Pointer to inverse move interval
-    // Do not need offset for invertible move structure
-    FWD_INTERVAL, // Interval was originally a forward move interval
-    INV_INTERVAL, // Interval was originally an inverse move interval
-    CHARACTER, // RLBWT Character
-    COUNT // Helper to get the number of columns
+    START,
+    POINTER_FWD,
+    POINTER_INV,
+    OFFSET,
+    FWD_INTERVAL,
+    INV_INTERVAL,
+    CHARACTER,
+    COUNT
+};
+
+enum class invertible_rlbwt_columns_scan {
+    LENGTH,
+    POINTER_FWD,
+    POINTER_INV,
+    FWD_INTERVAL,
+    INV_INTERVAL,
+    CHARACTER,
+    COUNT
+};
+
+enum class invertible_rlbwt_columns_idx_scan {
+    START,
+    POINTER_FWD,
+    POINTER_INV,
+    FWD_INTERVAL,
+    INV_INTERVAL,
+    CHARACTER,
+    COUNT
 };
 
 } // namespace orbit::rlbwt
@@ -111,11 +135,13 @@ template<>
 struct move_cols_traits<rlbwt::invertible_rlbwt_columns> {
     static constexpr bool RELATIVE = true;
     static constexpr bool INVERTIBLE = true;
+    static constexpr bool STORE_OFFSETS = true;
     static constexpr rlbwt::invertible_rlbwt_columns PRIMARY = rlbwt::invertible_rlbwt_columns::LENGTH;
 
     static constexpr rlbwt::invertible_rlbwt_columns LENGTH = rlbwt::invertible_rlbwt_columns::LENGTH;
     static constexpr rlbwt::invertible_rlbwt_columns POINTER_FWD = rlbwt::invertible_rlbwt_columns::POINTER_FWD;
     static constexpr rlbwt::invertible_rlbwt_columns POINTER_INV = rlbwt::invertible_rlbwt_columns::POINTER_INV;
+    static constexpr rlbwt::invertible_rlbwt_columns OFFSET = rlbwt::invertible_rlbwt_columns::OFFSET;
     static constexpr rlbwt::invertible_rlbwt_columns FWD_INTERVAL = rlbwt::invertible_rlbwt_columns::FWD_INTERVAL;
     static constexpr rlbwt::invertible_rlbwt_columns INV_INTERVAL = rlbwt::invertible_rlbwt_columns::INV_INTERVAL;
     static constexpr rlbwt::invertible_rlbwt_columns CHARACTER = rlbwt::invertible_rlbwt_columns::CHARACTER;
@@ -128,11 +154,13 @@ template<>
 struct move_cols_traits<rlbwt::invertible_rlbwt_columns_idx> {
     static constexpr bool RELATIVE = false;
     static constexpr bool INVERTIBLE = true;
+    static constexpr bool STORE_OFFSETS = true;
     static constexpr rlbwt::invertible_rlbwt_columns_idx PRIMARY = rlbwt::invertible_rlbwt_columns_idx::START;
 
     static constexpr rlbwt::invertible_rlbwt_columns_idx START = rlbwt::invertible_rlbwt_columns_idx::START;
     static constexpr rlbwt::invertible_rlbwt_columns_idx POINTER_FWD = rlbwt::invertible_rlbwt_columns_idx::POINTER_FWD;
     static constexpr rlbwt::invertible_rlbwt_columns_idx POINTER_INV = rlbwt::invertible_rlbwt_columns_idx::POINTER_INV;
+    static constexpr rlbwt::invertible_rlbwt_columns_idx OFFSET = rlbwt::invertible_rlbwt_columns_idx::OFFSET;
     static constexpr rlbwt::invertible_rlbwt_columns_idx FWD_INTERVAL = rlbwt::invertible_rlbwt_columns_idx::FWD_INTERVAL;
     static constexpr rlbwt::invertible_rlbwt_columns_idx INV_INTERVAL = rlbwt::invertible_rlbwt_columns_idx::INV_INTERVAL;
     static constexpr rlbwt::invertible_rlbwt_columns_idx CHARACTER = rlbwt::invertible_rlbwt_columns_idx::CHARACTER;
@@ -142,15 +170,71 @@ struct move_cols_traits<rlbwt::invertible_rlbwt_columns_idx> {
 };
 
 template<>
+struct move_cols_traits<rlbwt::invertible_rlbwt_columns_scan> {
+    static constexpr bool RELATIVE = true;
+    static constexpr bool INVERTIBLE = true;
+    static constexpr bool STORE_OFFSETS = false;
+    static constexpr rlbwt::invertible_rlbwt_columns_scan PRIMARY = rlbwt::invertible_rlbwt_columns_scan::LENGTH;
+
+    static constexpr rlbwt::invertible_rlbwt_columns_scan LENGTH = rlbwt::invertible_rlbwt_columns_scan::LENGTH;
+    static constexpr rlbwt::invertible_rlbwt_columns_scan POINTER_FWD = rlbwt::invertible_rlbwt_columns_scan::POINTER_FWD;
+    static constexpr rlbwt::invertible_rlbwt_columns_scan POINTER_INV = rlbwt::invertible_rlbwt_columns_scan::POINTER_INV;
+    static constexpr rlbwt::invertible_rlbwt_columns_scan FWD_INTERVAL = rlbwt::invertible_rlbwt_columns_scan::FWD_INTERVAL;
+    static constexpr rlbwt::invertible_rlbwt_columns_scan INV_INTERVAL = rlbwt::invertible_rlbwt_columns_scan::INV_INTERVAL;
+    static constexpr rlbwt::invertible_rlbwt_columns_scan CHARACTER = rlbwt::invertible_rlbwt_columns_scan::CHARACTER;
+    static constexpr size_t NUM_COLS = static_cast<size_t>(rlbwt::invertible_rlbwt_columns_scan::COUNT);
+
+    using position = move_position<RELATIVE>::type;
+};
+
+template<>
+struct move_cols_traits<rlbwt::invertible_rlbwt_columns_idx_scan> {
+    static constexpr bool RELATIVE = false;
+    static constexpr bool INVERTIBLE = true;
+    static constexpr bool STORE_OFFSETS = false;
+    static constexpr rlbwt::invertible_rlbwt_columns_idx_scan PRIMARY = rlbwt::invertible_rlbwt_columns_idx_scan::START;
+
+    static constexpr rlbwt::invertible_rlbwt_columns_idx_scan START = rlbwt::invertible_rlbwt_columns_idx_scan::START;
+    static constexpr rlbwt::invertible_rlbwt_columns_idx_scan POINTER_FWD = rlbwt::invertible_rlbwt_columns_idx_scan::POINTER_FWD;
+    static constexpr rlbwt::invertible_rlbwt_columns_idx_scan POINTER_INV = rlbwt::invertible_rlbwt_columns_idx_scan::POINTER_INV;
+    static constexpr rlbwt::invertible_rlbwt_columns_idx_scan FWD_INTERVAL = rlbwt::invertible_rlbwt_columns_idx_scan::FWD_INTERVAL;
+    static constexpr rlbwt::invertible_rlbwt_columns_idx_scan INV_INTERVAL = rlbwt::invertible_rlbwt_columns_idx_scan::INV_INTERVAL;
+    static constexpr rlbwt::invertible_rlbwt_columns_idx_scan CHARACTER = rlbwt::invertible_rlbwt_columns_idx_scan::CHARACTER;
+    static constexpr size_t NUM_COLS = static_cast<size_t>(rlbwt::invertible_rlbwt_columns_idx_scan::COUNT);
+
+    using position = move_position<RELATIVE>::type;
+};
+
+template<>
 struct column_switcher<rlbwt::invertible_rlbwt_columns> {
     using relative = rlbwt::invertible_rlbwt_columns;
     using absolute = rlbwt::invertible_rlbwt_columns_idx;
+    using with_offsets = rlbwt::invertible_rlbwt_columns;
+    using without_offsets = rlbwt::invertible_rlbwt_columns_scan;
 };
 
 template<>
 struct column_switcher<rlbwt::invertible_rlbwt_columns_idx> {
     using relative = rlbwt::invertible_rlbwt_columns;
     using absolute = rlbwt::invertible_rlbwt_columns_idx;
+    using with_offsets = rlbwt::invertible_rlbwt_columns_idx;
+    using without_offsets = rlbwt::invertible_rlbwt_columns_idx_scan;
+};
+
+template<>
+struct column_switcher<rlbwt::invertible_rlbwt_columns_scan> {
+    using relative = rlbwt::invertible_rlbwt_columns_scan;
+    using absolute = rlbwt::invertible_rlbwt_columns_idx_scan;
+    using with_offsets = rlbwt::invertible_rlbwt_columns;
+    using without_offsets = rlbwt::invertible_rlbwt_columns_scan;
+};
+
+template<>
+struct column_switcher<rlbwt::invertible_rlbwt_columns_idx_scan> {
+    using relative = rlbwt::invertible_rlbwt_columns_scan;
+    using absolute = rlbwt::invertible_rlbwt_columns_idx_scan;
+    using with_offsets = rlbwt::invertible_rlbwt_columns_idx;
+    using without_offsets = rlbwt::invertible_rlbwt_columns_idx_scan;
 };
 
 } // namespace orbit
