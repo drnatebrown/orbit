@@ -30,6 +30,7 @@ help:
 	@echo "  debug: build with debug symbols"
 
 UNIT_TESTS = $(UNIT_BUILD_DIR)/packed_vector_test \
+             $(UNIT_BUILD_DIR)/bitvector_test \
              $(UNIT_BUILD_DIR)/alphabet_test \
              $(UNIT_BUILD_DIR)/columns_test \
              $(UNIT_BUILD_DIR)/api_test \
@@ -63,6 +64,7 @@ example: examples/example.cpp examples/example.hpp $(HEADERS)
 
 test: $(UNIT_TESTS) $(INTEGRATION_TESTS)
 	$(UNIT_BUILD_DIR)/packed_vector_test
+	$(UNIT_BUILD_DIR)/bitvector_test
 	$(UNIT_BUILD_DIR)/alphabet_test
 	$(UNIT_BUILD_DIR)/columns_test
 	$(UNIT_BUILD_DIR)/interval_encoding_test
@@ -93,6 +95,10 @@ bench: $(BENCH_TESTS)
 
 # Unit tests (header-only data structures)
 $(UNIT_BUILD_DIR)/packed_vector_test: ./tests/unit/ds/packed_vector_test.cpp $(HEADERS)
+	mkdir -p $(UNIT_BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+$(UNIT_BUILD_DIR)/bitvector_test: ./tests/unit/ds/bitvector_test.cpp $(HEADERS)
 	mkdir -p $(UNIT_BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $<
 

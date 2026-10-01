@@ -105,6 +105,12 @@ public:
     permutation_impl(const interval_encoding_impl_t& enc) 
     : permutation_impl(enc, std::vector<data_tuple>(enc.intervals())) {}
 
+    template<typename interval_encoding_impl_t,
+             class dc = data_columns_t,
+             std::enable_if_t<std::is_same_v<dc, empty_data_columns>, int> = 0>
+    permutation_impl(const interval_encoding_impl_t& enc, bool store_ef_high_bits)
+    : permutation_impl(enc, std::vector<data_tuple>(enc.intervals()), store_ef_high_bits) {}
+
     // Rvalue encoding: build the move table, then drop packed encoding vectors
     // before attaching run data. Named lvalues keep the const-ref constructor.
     template<typename interval_encoding_impl_t,
@@ -112,9 +118,9 @@ public:
              std::enable_if_t<std::is_same_v<dc, empty_data_columns> &&
                               !std::is_lvalue_reference_v<interval_encoding_impl_t> &&
                               is_interval_encoding_type<std::decay_t<interval_encoding_impl_t>>::value, int> = 0>
-    permutation_impl(interval_encoding_impl_t&& enc) {
+    permutation_impl(interval_encoding_impl_t&& enc, bool store_ef_high_bits = false) {
         const size_t n = enc.intervals();
-        build_from_interval_encoding(std::move(enc), std::vector<data_tuple>(n));
+        build_from_interval_encoding(std::move(enc), std::vector<data_tuple>(n), store_ef_high_bits);
     }
     
     // Constructor from lengths and interval permutation
@@ -124,18 +130,24 @@ public:
     permutation_impl(const container1_t& lengths, const container2_t& images, const split_params& sp = split_params())
     : permutation_impl(lengths, images, sp, std::vector<data_tuple>(lengths.size())) {}
 
+    template<typename container1_t, typename container2_t,
+             class dc = data_columns_t,
+             std::enable_if_t<std::is_same_v<dc, empty_data_columns>, int> = 0>
+    permutation_impl(const container1_t& lengths, const container2_t& images, const split_params& sp, bool store_ef_high_bits)
+    : permutation_impl(lengths, images, sp, std::vector<data_tuple>(lengths.size()), store_ef_high_bits) {}
+
     // Intended constructor for manual splitting of run data
     template<typename interval_encoding_impl_t>
-    permutation_impl(const interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data) {
-        build_from_interval_encoding(enc, run_data);
+    permutation_impl(const interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data, bool store_ef_high_bits = false) {
+        build_from_interval_encoding(enc, run_data, store_ef_high_bits);
     }
 
     // Both arguments are rvalues. See the one-argument overload above.
     template<typename interval_encoding_impl_t,
              std::enable_if_t<!std::is_lvalue_reference_v<interval_encoding_impl_t> &&
                               is_interval_encoding_type<std::decay_t<interval_encoding_impl_t>>::value, int> = 0>
-    permutation_impl(interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data) {
-        build_from_interval_encoding(std::move(enc), std::move(run_data));
+    permutation_impl(interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data, bool store_ef_high_bits = false) {
+        build_from_interval_encoding(std::move(enc), std::move(run_data), store_ef_high_bits);
     }
 
     /**
@@ -158,11 +170,23 @@ public:
             }
         ){}
 
+    template<typename container1_t, typename container2_t>
+    permutation_impl(const container1_t &lengths, const container2_t &images, const split_params &sp, const std::vector<data_tuple> &run_data, bool store_ef_high_bits)
+        : permutation_impl(lengths, images, sp, run_data,
+            [&run_data](ulint orig_interval, ulint orig_interval_length, ulint new_offset_from_orig_start, ulint new_length) {
+                (void)orig_interval_length;
+                (void)new_offset_from_orig_start;
+                (void)new_length;
+                return run_data[orig_interval];
+            },
+            store_ef_high_bits
+        ){}
+
     // Path for constructor above, see below constructor for more details
     // This exists as a fast path in case no splitting is set and we do not need to call extend_run_data
     template<typename container1_t, typename container2_t>
-    permutation_impl(const container1_t &lengths, const container2_t &images, const split_params &sp, const std::vector<data_tuple> &run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data) {
-        build_from_lengths_and_images(lengths, images, sp, &run_data, std::move(get_run_cols_data));
+    permutation_impl(const container1_t &lengths, const container2_t &images, const split_params &sp, const std::vector<data_tuple> &run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data, bool store_ef_high_bits = false) {
+        build_from_lengths_and_images(lengths, images, sp, &run_data, std::move(get_run_cols_data), store_ef_high_bits);
     }
 
     // Advanced constructor for users who want to specify how to set the run data for each column type by passing a function:
@@ -175,8 +199,8 @@ public:
      * and returns the values to be stored in the new interval (run data) for that new row
      */
     template<typename container1_t, typename container2_t>
-    permutation_impl(const container1_t &lengths, const container2_t &images, const split_params &sp, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data) {
-        build_from_lengths_and_images(lengths, images, sp, nullptr, std::move(get_run_cols_data));
+    permutation_impl(const container1_t &lengths, const container2_t &images, const split_params &sp, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data, bool store_ef_high_bits = false) {
+        build_from_lengths_and_images(lengths, images, sp, nullptr, std::move(get_run_cols_data), store_ef_high_bits);
     }
 
     /**
@@ -470,6 +494,14 @@ public:
         return get_length(position.interval);
     }
 
+    ulint get_idx(position position) const {
+        return move_structure.get_idx(position);
+    }
+
+    bool stores_ef_high_bits() const {
+        return move_structure.stores_ef_high_bits();
+    }
+
     template<bool absolute = store_absolute_positions, std::enable_if_t<absolute, int> = 0>
     ulint get_start(ulint interval) const {
         return move_structure.get_start(interval);
@@ -552,17 +584,17 @@ protected:
     // Lvalues only. An rvalue encoding selects the by-value overload, which drops packed vectors.
     template<typename interval_encoding_impl_t,
              std::enable_if_t<std::is_lvalue_reference_v<interval_encoding_impl_t>, int> = 0>
-    void build_from_interval_encoding(interval_encoding_impl_t&& enc, const std::vector<data_tuple> &run_data) {
-        build_from_interval_encoding_impl(enc, run_data, static_cast<std::decay_t<interval_encoding_impl_t>*>(nullptr));
+    void build_from_interval_encoding(interval_encoding_impl_t&& enc, const std::vector<data_tuple> &run_data, bool store_ef_high_bits = false) {
+        build_from_interval_encoding_impl(enc, run_data, static_cast<std::decay_t<interval_encoding_impl_t>*>(nullptr), store_ef_high_bits);
     }
 
     template<typename interval_encoding_impl_t,
              std::enable_if_t<!std::is_lvalue_reference_v<interval_encoding_impl_t>, int> = 0>
-    void build_from_interval_encoding(interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data) {
+    void build_from_interval_encoding(interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data, bool store_ef_high_bits = false) {
         using encoding_t = std::decay_t<interval_encoding_impl_t>;
         encoding_t owned(std::move(enc));
         std::vector<data_tuple> owned_data(std::move(run_data));
-        build_from_interval_encoding_impl(owned, owned_data, &owned);
+        build_from_interval_encoding_impl(owned, owned_data, &owned, store_ef_high_bits);
     }
 
     template<typename interval_encoding_impl_t, typename ColContainer,
@@ -581,7 +613,7 @@ protected:
     }
 
     template<typename interval_encoding_impl_t>
-    void build_from_interval_encoding_impl(const interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data, interval_encoding_impl_t* drop_enc) {
+    void build_from_interval_encoding_impl(const interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data, interval_encoding_impl_t* drop_enc, bool store_ef_high_bits = false) {
         // Plain permutations may take an invertible encoding (e.g. after
         // union splitting); invertible permutations still require one.
         static_assert(!cols_traits::INVERTIBLE ||
@@ -589,12 +621,13 @@ protected:
                       "Invertible permutation requires an invertible "
                       "interval encoding");
         split_params_ = enc.get_split_params();
-        auto built = move_structure_base::find_structure(enc);
+        ef_index ef;
+        auto built = move_structure_base::find_structure(enc, store_ef_high_bits ? &ef : nullptr);
         if (drop_enc != nullptr) {
             drop_enc->drop_storage();
         }
         if (run_data.size() == enc.intervals()) {
-            populate_structure(std::move(built.rows), std::move(built.spill), run_data, enc.domain(), enc.runs());
+            populate_structure(std::move(built.rows), std::move(built.spill), run_data, enc.domain(), enc.runs(), std::move(ef));
         }
         else if (run_data.size() == enc.runs()) {
             throw std::invalid_argument("Run data size is same as number of runs, not intervals after splitting; avoid splitting, manually split run data, or use permutation copy split.");
@@ -638,14 +671,14 @@ protected:
     }
 
     template<typename container1_t, typename container2_t>
-    void build_from_lengths_and_images(const container1_t &lengths, const container2_t &images, const split_params &sp, const std::vector<data_tuple>* run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data) {
+    void build_from_lengths_and_images(const container1_t &lengths, const container2_t &images, const split_params &sp, const std::vector<data_tuple>* run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data, bool store_ef_high_bits = false) {
         assert(lengths.size() == images.size());
         auto enc = interval_encoding_t::from_lengths_and_images(lengths, images, sp);
-        build_from_interval_encoding_callback(enc, lengths, run_data, std::move(get_run_cols_data));
+        build_from_interval_encoding_callback(enc, lengths, run_data, std::move(get_run_cols_data), store_ef_high_bits);
     }
 
     template<typename container1_t, typename interval_encoding_impl_t>
-    void build_from_interval_encoding_callback(const interval_encoding_impl_t& enc, const container1_t &lengths, const std::vector<data_tuple>* run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data) {
+    void build_from_interval_encoding_callback(const interval_encoding_impl_t& enc, const container1_t &lengths, const std::vector<data_tuple>* run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data, bool store_ef_high_bits = false) {
         static_assert(!cols_traits::INVERTIBLE ||
                           interval_encoding_impl_t::invertible_tag,
                       "Invertible permutation requires an invertible "
@@ -654,13 +687,14 @@ protected:
         // Find the base structure (move structure without run data)
         size_t domain = enc.domain();
         size_t runs = enc.runs();
-        auto built = move_structure_base::find_structure(enc);
+        ef_index ef;
+        auto built = move_structure_base::find_structure(enc, store_ef_high_bits ? &ef : nullptr);
 
         if (split_params_ == NO_SPLITTING && run_data != nullptr) {
-            populate_structure(std::move(built.rows), std::move(built.spill), *run_data, domain, runs);
+            populate_structure(std::move(built.rows), std::move(built.spill), *run_data, domain, runs, std::move(ef));
         } else {
-            std::vector<data_tuple> final_run_data = extend_run_data(lengths, built.rows, domain, get_run_cols_data);
-            populate_structure(std::move(built.rows), std::move(built.spill), final_run_data, domain, runs);
+            std::vector<data_tuple> final_run_data = extend_run_data(lengths, built.rows, domain, get_run_cols_data, ef.enabled ? &ef : nullptr);
+            populate_structure(std::move(built.rows), std::move(built.spill), final_run_data, domain, runs, std::move(ef));
         }
     }
 
@@ -674,13 +708,20 @@ protected:
     }
     
     template<class Container>
-    std::vector<data_tuple> extend_run_data(const Container& lengths, const packed_vector<base_columns>& structure, const size_t domain, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data) {
+    std::vector<data_tuple> extend_run_data(const Container& lengths, const packed_vector<base_columns>& structure, const size_t domain, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data, const ef_index* ef = nullptr) {
         std::vector<data_tuple> final_run_data(structure.size());
         auto get_structure_length = [&](size_t row) {
             if constexpr (store_absolute_positions) {
-                return (row == structure.size() - 1) 
+                return (row == structure.size() - 1)
                     ? domain - structure.template get<cols_traits::PRIMARY>(row)
                     : structure.template get<cols_traits::PRIMARY>(row + 1) - structure.template get<cols_traits::PRIMARY>(row);
+            } else if (ef != nullptr && ef->enabled) {
+                const ulint low = structure.template get<cols_traits::PRIMARY>(row);
+                const ulint next_low = (row + 1 == structure.size())
+                    ? ef->sentinel_low
+                    : structure.template get<cols_traits::PRIMARY>(row + 1);
+                const ulint mod = ulint{1} << ef->bits;
+                return (next_low + mod - low) & (mod - 1);
             } else {
                 return structure.template get<cols_traits::PRIMARY>(row);
             }
@@ -779,7 +820,7 @@ protected:
     }
 
     // Sets move structure and run data from the base structure and run data
-    void populate_structure(packed_vector<base_columns>&& base_structure, pointer_spillover spill, const std::vector<data_tuple>& run_data, const size_t domain, const size_t runs) {
+    void populate_structure(packed_vector<base_columns>&& base_structure, pointer_spillover spill, const std::vector<data_tuple>& run_data, const size_t domain, const size_t runs, ef_index ef = {}) {
         check_run_rows_match_structure(run_data.size(), base_structure.size());
         auto run_cols_widths = this->get_data_cols_widths(run_data);
         if constexpr (integrated_move_structure) {
@@ -793,9 +834,9 @@ protected:
                 auto row = get_row(base_row, run_row);
                 final_structure.set_row(i, row);
             }
-            move_structure = move_structure_perm(std::move(final_structure), domain, runs, std::move(spill));
+            move_structure = move_structure_perm(std::move(final_structure), domain, runs, std::move(spill), std::move(ef));
         } else {
-            move_structure = move_structure_perm(std::move(base_structure), domain, runs, std::move(spill));
+            move_structure = move_structure_perm(std::move(base_structure), domain, runs, std::move(spill), std::move(ef));
             fill_separated_data(run_data, run_cols_widths);
         }
     }

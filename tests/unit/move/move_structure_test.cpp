@@ -4,8 +4,11 @@
 #include "orbit/internal/move/move_structure_impl.hpp"
 
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
 using std::size_t;
@@ -165,11 +168,107 @@ static void test_move_structure_widths_relative_and_absolute_with_and_without_sp
     assert(w_offset_abs >= bit_width(ms_abs.get_length(0)));
 }
 
+template <typename Fn>
+static void expect_abort(Fn&& fn) {
+    const pid_t pid = fork();
+    assert(pid >= 0);
+    if (pid == 0) {
+        fn();
+        _exit(0);
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    assert(WIFSIGNALED(status));
+    assert(WTERMSIG(status) == SIGABRT);
+}
+
+static ulint prefix_index(const move_structure_impl<move_columns>& ms, move_structure_impl<move_columns>::position pos) {
+    ulint idx = 0;
+    for (size_t i = 0; i < pos.interval; ++i) idx += ms.get_length(i);
+    return idx + pos.offset;
+}
+
+static void test_ef_get_idx_matches_prefix_and_move() {
+    const vector<ulint> lengths = {40, 10, 50};
+    const vector<ulint> images = {0, 40, 90};
+    const split_params cap(0.25, std::nullopt);
+
+    move_structure_impl<move_columns> plain(lengths, images, cap, false);
+    move_structure_impl<move_columns> ef(lengths, images, cap, true);
+    assert(ef.stores_ef_high_bits());
+    assert(!plain.stores_ef_high_bits());
+    assert(ef.intervals() == plain.intervals());
+
+    for (size_t i = 0; i < ef.intervals(); ++i) {
+        assert(ef.get_length(i) == plain.get_length(i));
+    }
+
+    auto pos_plain = plain.first();
+    auto pos_ef = ef.first();
+    ulint idx = 0;
+    for (size_t interval = 0; interval < ef.intervals(); ++interval) {
+        const ulint len = ef.get_length(interval);
+        for (ulint offset = 0; offset < len; ++offset) {
+            pos_plain = {interval, offset};
+            pos_ef = {interval, offset};
+            assert(ef.get_idx(pos_ef) == idx);
+            assert(prefix_index(plain, pos_plain) == idx);
+            const auto next_plain = plain.move(pos_plain);
+            const auto next_ef = ef.move(pos_ef);
+            assert(ef.get_idx(next_ef) == prefix_index(plain, next_plain));
+            ++idx;
+        }
+    }
+    assert(idx == ef.domain());
+
+    std::stringstream ss;
+    assert(ef.serialize(ss) > 0);
+    move_structure_impl<move_columns> loaded;
+    loaded.load(ss);
+    assert(loaded.stores_ef_high_bits());
+    auto loaded_pos = loaded.first();
+    ulint loaded_idx = 0;
+    for (size_t interval = 0; interval < loaded.intervals(); ++interval) {
+        for (ulint offset = 0; offset < loaded.get_length(interval); ++offset) {
+            loaded_pos = {interval, offset};
+            assert(loaded.get_idx(loaded_pos) == loaded_idx);
+            ++loaded_idx;
+        }
+    }
+    assert(loaded_idx == loaded.domain());
+}
+
+static void test_get_idx_absolute_and_gates() {
+    const vector<ulint> lengths = {3, 2, 1, 2, 2};
+    const vector<ulint> perm = {4, 0, 9, 2, 7};
+
+    move_structure_impl<move_columns_idx> absolute(lengths, perm, NO_SPLITTING);
+    auto pos = absolute.first();
+    assert(absolute.get_idx(pos) == pos.idx);
+    pos = absolute.move(pos);
+    assert(absolute.get_idx(pos) == pos.idx);
+
+    expect_abort([&] {
+        move_structure_impl<move_columns> relative(lengths, perm, NO_SPLITTING);
+        relative.get_idx(relative.first());
+    });
+    expect_abort([&] {
+        move_structure_impl<move_columns> rejected(lengths, perm, NO_SPLITTING, true);
+        (void)rejected;
+    });
+    expect_abort([&] {
+        move_structure_impl<move_columns_idx> rejected(lengths, perm, ONLY_LENGTH_CAPPING, true);
+        (void)rejected;
+    });
+}
+
 int main() {
     test_move_structure_relative_build_invariants();
     test_move_structure_absolute_build_invariants();
     test_move_structure_serialize_roundtrip();
     test_move_structure_widths_relative_and_absolute_with_and_without_splitting();
+    test_ef_get_idx_matches_prefix_and_move();
+    test_get_idx_absolute_and_gates();
 
     std::cout << "move_structure unit tests passed" << std::endl;
     return 0;

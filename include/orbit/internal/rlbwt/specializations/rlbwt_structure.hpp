@@ -33,6 +33,9 @@ public:
     rlbwt_move_structure(packed_vector<columns> &&structure, const size_t domain, ulint runs, pointer_spillover spill)
         : base(std::move(structure), domain, runs, std::move(spill)) {}
 
+    rlbwt_move_structure(packed_vector<columns> &&structure, const size_t domain, ulint runs, pointer_spillover spill, ef_index ef)
+        : base(std::move(structure), domain, runs, std::move(spill), std::move(ef)) {}
+
     rlbwt_move_structure(move_payload<columns> built, const size_t domain, ulint runs)
         : base(std::move(built), domain, runs) {}
 
@@ -82,6 +85,14 @@ public:
         base::populate_structure(built.rows, enc, &built.spill);
         set_characters(built.rows, enc.get_heads());
         return built;
+    }
+
+    // Permutation build always passes an ef pointer slot. RLBWT rows are out of
+    // scope for Elias-Fano in this version, so a non-null index is rejected.
+    template<typename rlbwt_interval_encoding_t>
+    static move_payload<columns> find_structure(const rlbwt_interval_encoding_t& enc, ef_index* ef) {
+        assert(ef == nullptr && "store_ef_high_bits is not supported for RLBWT structures");
+        return find_structure(enc);
     }
 
     uchar get_character(size_t i) const {

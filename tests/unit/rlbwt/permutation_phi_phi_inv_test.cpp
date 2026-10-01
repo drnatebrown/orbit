@@ -250,6 +250,36 @@ void test_sa_samples_to_phi_inv_starts_images_matches_rlbwt() {
     assert(expected_start == expected_domain);
 }
 
+static void test_phi_relative_ef_sa_matches_absolute() {
+    vector<uchar> heads = {'T','C','G','A','T', 1 ,'A','T','A'};
+    vector<ulint> lens  = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
+    const split_params cap = ONLY_LENGTH_CAPPING;
+
+    phi_move absolute(heads, lens, cap);
+    phi_move_relative relative(heads, lens, cap, true);
+    assert(relative.stores_ef_high_bits());
+
+    auto pos_abs = absolute.first();
+    auto pos_rel = relative.first();
+    for (ulint i = 0; i < absolute.domain(); ++i) {
+        assert(relative.SA(pos_rel) == absolute.SA(pos_abs));
+        assert(relative.get_idx(pos_rel) == absolute.SA(pos_abs));
+        pos_abs = absolute.phi(pos_abs);
+        pos_rel = relative.phi(pos_rel);
+    }
+
+    phi_inv_move absolute_inv(heads, lens, cap);
+    phi_inv_move_relative relative_inv(heads, lens, cap, true);
+    assert(relative_inv.stores_ef_high_bits());
+    auto inv_abs = absolute_inv.first();
+    auto inv_rel = relative_inv.first();
+    for (ulint i = 0; i < absolute_inv.domain(); ++i) {
+        assert(relative_inv.SA(inv_rel) == absolute_inv.SA(inv_abs));
+        inv_abs = absolute_inv.phi_inv(inv_abs);
+        inv_rel = relative_inv.phi_inv(inv_rel);
+    }
+}
+
 int main() {
     test_phi_phi_inv_structure_on_small_rlbwt();
     test_runperm_phi_phi_inv_wrapper_equivalence();
@@ -258,6 +288,7 @@ int main() {
     test_phi_and_phi_inv_img_rank_inv_equivalence();
     test_sa_samples_to_phi_starts_images_matches_rlbwt();
     test_sa_samples_to_phi_inv_starts_images_matches_rlbwt();
+    test_phi_relative_ef_sa_matches_absolute();
 
     std::cout << "permutation_phi_phi_inv unit tests passed" << std::endl;
     return 0;

@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "orbit/common.hpp"
+#include "orbit/internal/ds/bitvector.hpp"
 #include "orbit/internal/move/interval_encoding_impl.hpp"
 #include "orbit/internal/move/move_table.hpp"
 #include "orbit/internal/move/move_splitting.hpp"
@@ -27,14 +28,26 @@ public:
 
     move_structure_base() = default;
     
-    // Constructor from permutation data
+    struct prepared_structure {
+        move_payload<columns> payload;
+        ef_index ef;
+        size_t domain = 0;
+        ulint runs = 0;
+    };
+
+    // Constructor from permutation data.
+    // store_ef_high_bits is relative + length-capped only; otherwise it asserts.
     template<typename container1_t, typename container2_t>
-    move_structure_base(const container1_t& lengths, const container2_t& images, const split_params& sp = split_params())
-    : move_structure_base(interval_encoding_t::from_lengths_and_images(lengths, images, sp)) {}
+    move_structure_base(const container1_t& lengths, const container2_t& images, const split_params& sp = split_params(), bool store_ef_high_bits = false)
+    : move_structure_base(interval_encoding_t::from_lengths_and_images(lengths, images, sp), store_ef_high_bits) {}
 
     template<typename interval_encoding_impl_t>
-    move_structure_base(const interval_encoding_impl_t& enc)
-    : move_structure_base(find_structure(enc), enc.domain(), enc.runs()) {}
+    move_structure_base(const interval_encoding_impl_t& enc, bool store_ef_high_bits = false)
+    : move_structure_base(prepare(enc, store_ef_high_bits)) {}
+
+    move_structure_base(prepared_structure prepared)
+    : table(std::move(prepared.payload.rows), std::move(prepared.payload.spill)),
+      n(prepared.domain), r(prepared.runs), ef_(std::move(prepared.ef)) {}
 
     // Constructor from pre-computed table (move semantics) for advanced users.
     // Non-spill tables ignore an empty spillover.
@@ -42,14 +55,14 @@ public:
     move_structure_base(packed_vector<columns> &&structure, const size_t domain, const ulint runs)
         : move_structure_base(std::move(structure), domain, runs, empty_pointer_spillover()) {}
 
-    move_structure_base(packed_vector<columns> &&structure, const size_t domain, const ulint runs, pointer_spillover spill)
-        : table(std::move(structure), std::move(spill)), n(domain), r(runs) {}
+    move_structure_base(packed_vector<columns> &&structure, const size_t domain, const ulint runs, pointer_spillover spill, ef_index ef = {})
+        : table(std::move(structure), std::move(spill)), n(domain), r(runs), ef_(std::move(ef)) {}
 
     move_structure_base(move_payload<columns> built, const size_t domain, const ulint runs)
         : move_structure_base(std::move(built.rows), domain, runs, std::move(built.spill)) {}
 
     template<typename interval_encoding_impl_t>
-    static move_payload<columns> find_structure(const interval_encoding_impl_t& enc) {
+    static move_payload<columns> find_structure(const interval_encoding_impl_t& enc, ef_index* ef = nullptr) {
         // Invertible structures need invertible encodings (fwd/inv flags).
         // Plain structures may consume an invertible encoding after union
         // splitting; they only read lengths / img_rank_inv.
@@ -57,10 +70,30 @@ public:
                           interval_encoding_impl_t::invertible_tag,
                       "Invertible move structure requires an invertible "
                       "interval encoding");
+        if (ef != nullptr) {
+            assert(!cols_traits::INVERTIBLE && "store_ef_high_bits is only supported for non-invertible move structures");
+            assert(cols_traits::RELATIVE && "store_ef_high_bits requires relative positions");
+            assert(enc.get_split_params().length_capping.has_value() &&
+                   "store_ef_high_bits requires length capping");
+        }
         move_payload<columns> built;
         built.rows = packed_vector<columns>(enc.intervals(), derived::get_move_widths(enc.domain(), enc.intervals(), enc.max_length()));
-        derived::populate_structure(built.rows, enc, &built.spill);
+        if constexpr (cols_traits::INVERTIBLE) {
+            assert(ef == nullptr);
+            derived::populate_structure(built.rows, enc, &built.spill);
+        } else {
+            derived::populate_structure(built.rows, enc, &built.spill, ef);
+        }
         return built;
+    }
+
+    template<typename interval_encoding_impl_t>
+    static prepared_structure prepare(const interval_encoding_impl_t& enc, bool store_ef_high_bits) {
+        prepared_structure prepared;
+        prepared.domain = enc.domain();
+        prepared.runs = enc.runs();
+        prepared.payload = find_structure(enc, store_ef_high_bits ? &prepared.ef : nullptr);
+        return prepared;
     }
 
     // === Interval Start/Length Accessors ===
@@ -79,6 +112,14 @@ public:
     ulint get_length(size_t i) const {
         assert(i < table.size());
         if constexpr (cols_traits::RELATIVE) {
+            if (ef_.enabled) {
+                const ulint low = table.get_length(i);
+                const ulint next_low = (i + 1 == table.size())
+                    ? ef_.sentinel_low
+                    : table.get_length(i + 1);
+                const ulint mod = ulint{1} << ef_.bits;
+                return (next_low + mod - low) & (mod - 1);
+            }
             return table.get_length(i);
         } else {
             return (i == table.size() - 1)
@@ -89,6 +130,20 @@ public:
     inline ulint get_length(position pos) const {
         return get_length(pos.interval);
     }
+
+    // Absolute: stored idx. Relative + EF: Elias-Fano start + offset.
+    // Relative without EF asserts; there is no prefix-sum fallback.
+    ulint get_idx(position pos) const {
+        if constexpr (!cols_traits::RELATIVE) {
+            return pos.idx;
+        } else {
+            assert(ef_.enabled && "get_idx requires absolute positions or store_ef_high_bits");
+            const ulint low = table.get_length(pos.interval);
+            return ef_.start(pos.interval, low) + pos.offset;
+        }
+    }
+
+    bool stores_ef_high_bits() const { return ef_.enabled; }
 
     // === Generic Column Accessors ===
     template<columns col>
@@ -163,6 +218,7 @@ public:
         written_bytes += sizeof(r);
 
         written_bytes += table.serialize(out);
+        written_bytes += ef_.serialize(out);
 
         return written_bytes;
     }
@@ -179,12 +235,14 @@ public:
         in.read((char *)&r, sizeof(r));
 
         table.load(in);
+        ef_.load(in);
     }
 
 protected:
     table_t<columns_t> table;
-    ulint n;
-    ulint r;
+    ulint n = 0;
+    ulint r = 0;
+    ef_index ef_;
 
     // === position Navigation ===
     inline position fast_forward(position pos) const {
@@ -315,14 +373,32 @@ public:
     }
 
     template<typename interval_encoding_impl_t>
-    static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc, pointer_spillover* = nullptr) {
+    static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc, pointer_spillover* = nullptr, ef_index* ef = nullptr) {
+        const bool use_ef = ef != nullptr;
+        uchar low_bits = 0;
+        ulint low_mask = 0;
+        if (use_ef) {
+            low_bits = bit_width(enc.max_length());
+            assert(low_bits < 64);
+            low_mask = mask(low_bits);
+            const size_t universe = (static_cast<size_t>(enc.domain()) >> low_bits) + enc.intervals() + 1;
+            ef->enabled = true;
+            ef->bits = low_bits;
+            ef->high = bit_vector(universe);
+        }
+
         size_t start_val = 0;
         size_t output_start_val = 0;
         size_t img_rank_inv_idx = 0;
         for (size_t i = 0; i < enc.intervals(); ++i) {
             size_t length = enc.get_length(i);
             if constexpr (cols_traits::RELATIVE) {
-                structure.template set<to_cols(cols_traits::PRIMARY)>(i, length);
+                if (use_ef) {
+                    structure.template set<to_cols(cols_traits::PRIMARY)>(i, start_val & low_mask);
+                    ef->high.set((static_cast<size_t>(start_val) >> low_bits) + i);
+                } else {
+                    structure.template set<to_cols(cols_traits::PRIMARY)>(i, length);
+                }
             }
             else {
                 structure.template set<to_cols(cols_traits::PRIMARY)>(i, start_val);
@@ -336,6 +412,11 @@ public:
                 ++img_rank_inv_idx;
             }
             start_val += length;
+        }
+
+        if (use_ef) {
+            ef->sentinel_low = static_cast<ulint>(start_val) & low_mask;
+            ef->high.build_select();
         }
     }
 };
