@@ -19,7 +19,7 @@ struct is_interval_encoding_type<T, std::void_t<decltype(T::invertible_tag)>> : 
 
 constexpr bool DEFAULT_INTEGRATED_MOVE_STRUCTURE = false;
 constexpr bool DEFAULT_STORE_ABSOLUTE_POSITIONS = false;
-constexpr bool DEFAULT_STORE_OFFSETS = true; // Invertible only; scan (false) omits the OFFSET column
+constexpr bool DEFAULT_STORE_OFFSETS = true;
 constexpr bool DEFAULT_EXPONENTIAL_SEARCH = false; // Whether to use exponential search for next(), only used if store_absolute_positions is true
 
 /* ============================================= Advanced Implemenation ============================================= */
@@ -39,16 +39,17 @@ template<typename data_columns_t = empty_data_columns, // Fields to be stored al
          typename base_columns_t = move_columns,
          template<typename, template<typename> class> class move_structure_t = move_structure,
          template<typename> class table_t = move_vector,
-         bool store_offsets = DEFAULT_STORE_OFFSETS>
+         invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
          // TODO need PackedType option?
 class permutation_impl : separated_data_holder<data_columns_t, integrated_move_structure> {
 protected:
     // Helpful constants for number of base (move permutation information) columns and run (additional data) columns
     static constexpr size_t num_run_cols = static_cast<size_t>(data_columns_t::COUNT);
 
-    // Switch relative/absolute, then offsets (plain columns use identity with/without_offsets).
+    // Switch relative/absolute, then space mode (plain columns use identity with/without_offsets).
+    // Space mode selects the column layout; move_vector/move_table derive storage from those columns.
     using base_columns_abs = switch_columns<base_columns_t, store_absolute_positions>;
-    using base_columns = switch_offset_columns<base_columns_abs, store_offsets>;
+    using base_columns = switch_space_columns<base_columns_abs, space_mode>;
     static constexpr size_t num_base_cols = static_cast<size_t>(base_columns::COUNT);
     // Use data_tupleColumns if integrating user data alongside the move structure, otherwise just use the switched columns
     // data_columns_wrapper extends the base_columns traits to include the run data columns
@@ -59,7 +60,7 @@ protected:
     // Sets num_cols, columns, and cols_traits
     MOVE_CLASS_TRAITS(columns_t)
 
-    // Base structure type is the move structure without run data
+    // Base structure type is the move structure without run data.
     using move_structure_base = move_structure_t<base_columns, table_t>;
     using move_structure_perm = move_structure_t<columns, table_t>;
 
@@ -71,6 +72,10 @@ public:
 
     static_assert(has_count_enumerator<data_columns>::value, "data_columns_t must have a COUNT enumerator");
     static_assert(!(!store_absolute_positions && exponential_search), "Exponential search is only supported with absolute positions");
+    static_assert(space_mode == invertible_space_mode::offsets || cols_traits::INVERTIBLE,
+                  "scan and spill require invertible columns");
+
+    static constexpr invertible_space_mode space_mode_value = space_mode;
 
     // check if we're using move_table
     static constexpr bool is_move_table_type() {
@@ -584,12 +589,12 @@ protected:
                       "Invertible permutation requires an invertible "
                       "interval encoding");
         split_params_ = enc.get_split_params();
-        packed_vector<base_columns> base_structure = move_structure_base::find_structure(enc);
+        auto built = move_structure_base::find_structure(enc);
         if (drop_enc != nullptr) {
             drop_enc->drop_storage();
         }
         if (run_data.size() == enc.intervals()) {
-            populate_structure(std::move(base_structure), run_data, enc.domain(), enc.runs());
+            populate_structure(std::move(built.rows), std::move(built.spill), run_data, enc.domain(), enc.runs());
         }
         else if (run_data.size() == enc.runs()) {
             throw std::invalid_argument("Run data size is same as number of runs, not intervals after splitting; avoid splitting, manually split run data, or use permutation copy split.");
@@ -605,13 +610,13 @@ protected:
                       "Invertible permutation requires an invertible "
                       "interval encoding");
         split_params_ = enc.get_split_params();
-        packed_vector<base_columns> base_structure = move_structure_base::find_structure(enc);
+        auto built = move_structure_base::find_structure(enc);
         if (drop_enc != nullptr) {
             drop_enc->drop_storage();
         }
         const size_t n = run_columns_rows(run_cols);
         if (n == enc.intervals()) {
-            populate_structure(std::move(base_structure), run_cols, enc.domain(), enc.runs());
+            populate_structure(std::move(built.rows), std::move(built.spill), run_cols, enc.domain(), enc.runs());
         }
         else if (n == enc.runs()) {
             throw std::invalid_argument("Run data size is same as number of runs, not intervals after splitting; avoid splitting, manually split run data, or use permutation copy split.");
@@ -649,13 +654,13 @@ protected:
         // Find the base structure (move structure without run data)
         size_t domain = enc.domain();
         size_t runs = enc.runs();
-        packed_vector<base_columns> base_structure = move_structure_base::find_structure(enc);
+        auto built = move_structure_base::find_structure(enc);
 
         if (split_params_ == NO_SPLITTING && run_data != nullptr) {
-            populate_structure(std::move(base_structure), *run_data, domain, runs);
+            populate_structure(std::move(built.rows), std::move(built.spill), *run_data, domain, runs);
         } else {
-            std::vector<data_tuple> final_run_data = extend_run_data(lengths, base_structure, domain, get_run_cols_data);
-            populate_structure(std::move(base_structure), final_run_data, domain, runs);
+            std::vector<data_tuple> final_run_data = extend_run_data(lengths, built.rows, domain, get_run_cols_data);
+            populate_structure(std::move(built.rows), std::move(built.spill), final_run_data, domain, runs);
         }
     }
 
@@ -774,7 +779,7 @@ protected:
     }
 
     // Sets move structure and run data from the base structure and run data
-    void populate_structure(packed_vector<base_columns>&& base_structure, const std::vector<data_tuple>& run_data, const size_t domain, const size_t runs) {
+    void populate_structure(packed_vector<base_columns>&& base_structure, pointer_spillover spill, const std::vector<data_tuple>& run_data, const size_t domain, const size_t runs) {
         check_run_rows_match_structure(run_data.size(), base_structure.size());
         auto run_cols_widths = this->get_data_cols_widths(run_data);
         if constexpr (integrated_move_structure) {
@@ -788,15 +793,15 @@ protected:
                 auto row = get_row(base_row, run_row);
                 final_structure.set_row(i, row);
             }
-            move_structure = move_structure_perm(std::move(final_structure), domain, runs);
+            move_structure = move_structure_perm(std::move(final_structure), domain, runs, std::move(spill));
         } else {
-            move_structure = move_structure_perm(std::move(base_structure), domain, runs);
+            move_structure = move_structure_perm(std::move(base_structure), domain, runs, std::move(spill));
             fill_separated_data(run_data, run_cols_widths);
         }
     }
 
     template<typename ColContainer>
-    void populate_structure(packed_vector<base_columns>&& base_structure, const std::array<ColContainer, num_run_cols>& run_cols, const size_t domain, const size_t runs) {
+    void populate_structure(packed_vector<base_columns>&& base_structure, pointer_spillover spill, const std::array<ColContainer, num_run_cols>& run_cols, const size_t domain, const size_t runs) {
         check_run_rows_match_structure(run_columns_rows(run_cols), base_structure.size());
         auto run_cols_widths = this->get_data_cols_widths(run_cols);
         if constexpr (integrated_move_structure) {
@@ -809,17 +814,17 @@ protected:
                 auto row = get_row(base_row, row_from_columns(run_cols, i));
                 final_structure.set_row(i, row);
             }
-            move_structure = move_structure_perm(std::move(final_structure), domain, runs);
+            move_structure = move_structure_perm(std::move(final_structure), domain, runs, std::move(spill));
         } else {
-            move_structure = move_structure_perm(std::move(base_structure), domain, runs);
+            move_structure = move_structure_perm(std::move(base_structure), domain, runs, std::move(spill));
             fill_separated_data(run_cols, run_cols_widths);
         }
     }
 };
 
 // A helper alias around permutation_impl without any run data, essentially just a move_structure
-template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS, bool exponential_search = DEFAULT_EXPONENTIAL_SEARCH, typename base_columns = move_columns, template<typename, template<typename> class> class move_structure_t = move_structure, template<typename> class table_t = move_vector, bool store_offsets = DEFAULT_STORE_OFFSETS>
-using move_permutation_impl = permutation_impl<empty_data_columns, false, store_absolute_positions, exponential_search, base_columns, move_structure_t, table_t, store_offsets>;
+template<bool store_absolute_positions = DEFAULT_STORE_ABSOLUTE_POSITIONS, bool exponential_search = DEFAULT_EXPONENTIAL_SEARCH, typename base_columns = move_columns, template<typename, template<typename> class> class move_structure_t = move_structure, template<typename> class table_t = move_vector, invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
+using move_permutation_impl = permutation_impl<empty_data_columns, false, store_absolute_positions, exponential_search, base_columns, move_structure_t, table_t, space_mode>;
 
 } // namespace orbit
 

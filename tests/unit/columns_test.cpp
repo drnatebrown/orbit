@@ -236,6 +236,30 @@ void test_invertible_column_switcher_and_switch_columns() {
                   "switch_offset_columns true must select offsets");
     static_assert(std::is_same<switch_offset_columns<move_columns, false>, move_columns>::value,
                   "plain columns ignore store_offsets");
+
+    static_assert(DEFAULT_INVERTIBLE_SPACE == invertible_space_mode::offsets,
+                  "default invertible space is offsets");
+    static_assert(std::is_same<switch_space_columns<invertible_columns, invertible_space_mode::offsets>, invertible_columns>::value,
+                  "offsets mode keeps offset columns");
+    static_assert(std::is_same<switch_space_columns<invertible_columns, invertible_space_mode::scan>, invertible_columns_scan>::value,
+                  "scan mode selects scan columns");
+    static_assert(std::is_same<switch_space_columns<invertible_columns, invertible_space_mode::spill>, invertible_columns_spill>::value,
+                  "spill mode selects spill columns");
+    static_assert(std::is_same<switch_space_columns<invertible_columns_idx, invertible_space_mode::spill>, invertible_columns_idx_spill>::value,
+                  "absolute spill selects idx spill columns");
+    static_assert(std::is_same<column_switcher<invertible_columns>::spill, invertible_columns_spill>::value,
+                  "column_switcher spill alias");
+    static_assert(default_invertible_space<invertible_columns_spill>::value == invertible_space_mode::spill,
+                  "spill columns default to spill space");
+    static_assert(move_cols_traits<invertible_columns_spill>::USE_SPILLOVER,
+                  "spill columns use spillover");
+    static_assert(!move_cols_traits<invertible_columns_scan>::USE_SPILLOVER,
+                  "scan columns do not use spillover");
+    static_assert(move_cols_traits<invertible_columns_spill>::NUM_COLS + 1 ==
+                      move_cols_traits<invertible_columns_scan>::NUM_COLS,
+                  "spill omits POINTER_INV vs scan");
+    static_assert(std::is_same<switch_space_columns<move_columns, invertible_space_mode::offsets>, move_columns>::value,
+                  "plain columns stay put in offsets mode");
 }
 
 void test_invertible_rlbwt_columns_traits_and_switcher() {

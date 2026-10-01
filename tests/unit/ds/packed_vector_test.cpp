@@ -401,6 +401,21 @@ void test_packed_vector_aligned_with_enum() {
     }
 }
 
+void test_packed_vector_width_zero() {
+    enum class Columns { A, B, COUNT };
+    packed_vector<Columns> vec(8, array<uchar, 2>{0, 4});
+    for (size_t i = 0; i < vec.size(); ++i) {
+        vec.set<Columns::A>(i, 0);
+        vec.set<Columns::B>(i, static_cast<ulint>(i % 16));
+    }
+    for (size_t i = 0; i < vec.size(); ++i) {
+        assert(vec.get<Columns::A>(i) == 0);
+        assert(vec.get<Columns::B>(i) == static_cast<ulint>(i % 16));
+    }
+    assert(vec.get_widths()[0] == 0);
+    assert(vec.get_widths()[1] == 4);
+}
+
 int main() {
     test_packed_matrix_single_column();
     test_packed_matrix_multi_column();
@@ -419,6 +434,7 @@ int main() {
     test_packed_vector_aligned_with_enum();
     test_int_vector_aligned_iterators();
     test_clear_releases_rows();
+    test_packed_vector_width_zero();
 
     std::cout << "packed_vector tests passed" << std::endl;
     return 0;

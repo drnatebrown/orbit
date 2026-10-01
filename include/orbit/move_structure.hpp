@@ -23,6 +23,10 @@ using invertible_structure_tbl_scan = move_structure<invertible_columns_scan, mo
 using invertible_structure_tbl_idx_scan = move_structure<invertible_columns_idx_scan, move_table>;
 using invertible_structure_vec_scan = move_structure<invertible_columns_scan, move_vector>;
 using invertible_structure_vec_idx_scan = move_structure<invertible_columns_idx_scan, move_vector>;
+using invertible_structure_tbl_spill = move_structure<invertible_columns_spill, move_table>;
+using invertible_structure_tbl_idx_spill = move_structure<invertible_columns_idx_spill, move_table>;
+using invertible_structure_vec_spill = move_structure<invertible_columns_spill, move_vector>;
+using invertible_structure_vec_idx_spill = move_structure<invertible_columns_idx_spill, move_vector>;
 
 } // namespace orbit
 

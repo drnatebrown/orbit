@@ -20,9 +20,9 @@ template<typename derived,
          typename base_columns_t = rlbwt_columns,
          template<typename, template<typename> class> class move_structure_t = rlbwt_move_structure,
          template<typename> class table_t = move_vector,
-         bool store_offsets = DEFAULT_STORE_OFFSETS>
-class rlbwt_permutation : public permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, base_columns_t, move_structure_t, table_t, store_offsets> {
-    using base = permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, base_columns_t, move_structure_t, table_t, store_offsets>;
+         invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
+class rlbwt_permutation : public permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, base_columns_t, move_structure_t, table_t, space_mode> {
+    using base = permutation_impl<data_columns_t, integrated_move_structure, store_absolute_positions, exponential_search, base_columns_t, move_structure_t, table_t, space_mode>;
 protected:
     using base_columns = typename base::base_columns;
     using move_structure_perm = typename base::move_structure_perm;
@@ -282,8 +282,8 @@ template<typename derived,
          typename base_columns_t = rlbwt_columns,
          template<typename, template<typename> class> class move_structure_t = rlbwt_move_structure,
          template<typename> class table_t = move_vector,
-         bool store_offsets = DEFAULT_STORE_OFFSETS>
-using rlbwt_move = rlbwt_permutation<derived, empty_data_columns, false, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t, store_offsets>;
+         invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
+using rlbwt_move = rlbwt_permutation<derived, empty_data_columns, false, store_absolute_positions, exponential_search, alphabet_t, base_columns_t, move_structure_t, table_t, space_mode>;
 
 } // namespace orbit::rlbwt
 

@@ -5,6 +5,7 @@
 #include "orbit/internal/perm/permutation_impl.hpp"
 #include "orbit/interval_encoding.hpp"
 #include "orbit/move_structure.hpp"
+#include "orbit/permutation.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -494,6 +495,115 @@ static void test_invertible_structure_offset_matches_scan() {
     }
 }
 
+static size_t count_dual_heads(const invertible_interval_encoding& enc) {
+    size_t duals = 0;
+    for (size_t i = 0; i < enc.intervals(); ++i) {
+        if (enc.get_is_fwd_interval(i) && enc.get_is_inv_interval(i)) ++duals;
+    }
+    return duals;
+}
+
+static void test_invertible_structure_spill_matches_scan() {
+    static_assert(invertible_structure_vec::space_mode == invertible_space_mode::offsets);
+    static_assert(invertible_structure_vec_scan::space_mode == invertible_space_mode::scan);
+    static_assert(invertible_structure_vec_spill::space_mode == invertible_space_mode::spill);
+    static_assert(invertible_structure_tbl_spill::space_mode == invertible_space_mode::spill);
+    static_assert(invertible_move_permutation_spill::space_mode_value == invertible_space_mode::spill);
+    static_assert(invertible_move_permutation_scan::space_mode_value == invertible_space_mode::scan);
+
+    const auto enc = make_invertible_encoding(kRunnyPerm);
+    invertible_structure_vec_scan scan(enc);
+    invertible_structure_vec_spill spill(enc);
+    invertible_structure_tbl_scan scan_tbl(enc);
+    invertible_structure_tbl_spill spill_tbl(enc);
+    invertible_structure_vec_idx_scan scan_idx(enc);
+    invertible_structure_vec_idx_spill spill_idx(enc);
+    invertible_structure_tbl_idx_spill spill_idx_tbl(enc);
+
+    const size_t duals = count_dual_heads(enc);
+    assert(duals > 0);
+    assert(spill.spillover_rows() == duals);
+    assert(spill_tbl.spillover_rows() == duals);
+    assert(spill_idx.spillover_rows() == duals);
+
+    using ScanCols = move_cols_traits<invertible_columns_scan>;
+    using SpillCols = move_cols_traits<invertible_columns_spill>;
+    assert(spill.get_widths().size() == SpillCols::NUM_COLS);
+    assert(scan.get_widths()[static_cast<size_t>(ScanCols::POINTER_INV)] == bit_width(spill.intervals() - 1));
+    assert(sizeof(invertible_row<invertible_columns_spill>) <
+           sizeof(invertible_row<invertible_columns_scan>));
+
+    assert(spill.intervals() == scan.intervals());
+    for (size_t i = 0; i < scan.intervals(); ++i) {
+        assert(spill.get_fwd_interval(i) == scan.get_fwd_interval(i));
+        assert(spill.get_inv_interval(i) == scan.get_inv_interval(i));
+        // The live cell holds the sole id. Compare a direction only at its head.
+        if (scan.get_fwd_interval(i)) {
+            assert(spill.get_pointer_fwd(i) == scan.get_pointer_fwd(i));
+            assert(spill_tbl.get_pointer_fwd(i) == scan.get_pointer_fwd(i));
+        }
+        if (scan.get_inv_interval(i)) {
+            assert(spill.get_pointer_inv(i) == scan.get_pointer_inv(i));
+            assert(spill_tbl.get_pointer_inv(i) == scan.get_pointer_inv(i));
+        }
+    }
+
+    assert_move_fwd_matches_perm(spill, kRunnyPerm);
+    assert_move_inv_matches_inverse(spill, kRunnyPerm);
+    assert_move_fwd_matches_perm(spill_tbl, kRunnyPerm);
+    assert_move_inv_matches_inverse(spill_tbl, kRunnyPerm);
+    assert_move_fwd_matches_perm_absolute(spill_idx, kRunnyPerm);
+    assert_move_inv_matches_inverse_absolute(spill_idx, kRunnyPerm);
+    assert_move_fwd_matches_perm_absolute(spill_idx_tbl, kRunnyPerm);
+    assert_move_inv_matches_inverse_absolute(spill_idx_tbl, kRunnyPerm);
+
+    for (ulint idx = 0; idx < scan.domain(); ++idx) {
+        auto scan_pos = position_from_index_relative(scan, idx);
+        auto spill_pos = position_from_index_relative(spill, idx);
+        scan_pos = scan.move_fwd(scan_pos);
+        spill_pos = spill.move_fwd(spill_pos);
+        assert(global_index_relative(scan, scan_pos) == global_index_relative(spill, spill_pos));
+
+        scan_pos = position_from_index_relative(scan, idx);
+        spill_pos = position_from_index_relative(spill, idx);
+        scan_pos = scan.move_inv(scan_pos);
+        spill_pos = spill.move_inv(spill_pos);
+        assert(global_index_relative(scan, scan_pos) == global_index_relative(spill, spill_pos));
+    }
+
+    std::stringstream ss;
+    assert(spill.serialize(ss) > 0);
+    invertible_structure_vec_spill loaded;
+    loaded.load(ss);
+    assert(loaded.spillover_rows() == duals);
+    assert(loaded.get_widths().size() == SpillCols::NUM_COLS);
+    assert_move_fwd_matches_perm(loaded, kRunnyPerm);
+    assert_move_inv_matches_inverse(loaded, kRunnyPerm);
+
+    std::stringstream ss_tbl;
+    assert(spill_tbl.serialize(ss_tbl) > 0);
+    invertible_structure_tbl_spill loaded_tbl;
+    loaded_tbl.load(ss_tbl);
+    assert(loaded_tbl.spillover_rows() == duals);
+    assert_move_fwd_matches_perm(loaded_tbl, kRunnyPerm);
+    assert_move_inv_matches_inverse(loaded_tbl, kRunnyPerm);
+
+    invertible_move_permutation_spill perm(enc);
+    invertible_move_permutation_scan scan_perm(enc);
+    assert(perm.domain() == scan_perm.domain());
+    for (ulint idx = 0; idx < perm.domain(); ++idx) {
+        auto pos = position_from_index_relative(perm, idx);
+        auto scan_pos = position_from_index_relative(scan_perm, idx);
+        pos = perm.next(pos);
+        scan_pos = scan_perm.next(scan_pos);
+        assert(global_index_relative(perm, pos) == global_index_relative(scan_perm, scan_pos));
+        pos = perm.prev(pos);
+        scan_pos = scan_perm.prev(scan_pos);
+        assert(global_index_relative(perm, pos) == idx);
+        assert(global_index_relative(scan_perm, scan_pos) == idx);
+    }
+}
+
 static void test_invertible_permutation_up_down() {
     const auto enc = make_invertible_encoding(kSmallPerm);
     invertible_move_perm p(enc);
@@ -529,6 +639,7 @@ int main() {
     test_invertible_structure_serialize_roundtrip();
     test_invertible_structure_widths();
     test_invertible_structure_offset_matches_scan();
+    test_invertible_structure_spill_matches_scan();
     test_invertible_permutation_next_prev();
     test_invertible_permutation_next_prev_multi_step();
     test_invertible_permutation_absolute_exponential_prev();

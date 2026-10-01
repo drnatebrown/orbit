@@ -5,6 +5,7 @@
 #include "orbit/internal/ds/packed_vector.hpp"
 #include "orbit/internal/ds/packed_vector_aligned.hpp"
 #include "orbit/internal/move/move_splitting.hpp"
+#include "orbit/internal/move/move_columns.hpp"
 
 #include <optional>
 #include <numeric>
@@ -97,7 +98,7 @@ template<typename data_columns_t,
          typename base_columns_t,
          template<typename, template<typename> class> class move_structure_t,
          template<typename> class table_t,
-         bool store_offsets>
+         invertible_space_mode space_mode>
 class permutation_impl;
 
 template<bool invertible = false, typename int_vector_t = int_vector_aligned>
@@ -298,7 +299,7 @@ protected:
     template<typename, bool, bool, bool, typename,
              template<typename, template<typename> class> class,
              template<typename> class,
-             bool>
+             invertible_space_mode>
     friend class permutation_impl;
 
     // Drops packed vectors after find_structure has copied them into the move table.

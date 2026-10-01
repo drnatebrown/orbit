@@ -14,9 +14,9 @@ template<typename data_columns_t = empty_data_columns,
          typename base_columns_t = move_columns,
          template<typename, template<typename> class> class move_structure_t = move_structure,
          template<typename> class table_t = move_vector,
-         bool store_offsets = DEFAULT_STORE_OFFSETS>
-class phi_permutation_impl : public permutation_impl<data_columns_t, integrated_move_structure, true, exponential_search, base_columns_t, move_structure_t, table_t, store_offsets> {
-    using base = permutation_impl<data_columns_t, integrated_move_structure, true, exponential_search, base_columns_t, move_structure_t, table_t, store_offsets>;
+         invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
+class phi_permutation_impl : public permutation_impl<data_columns_t, integrated_move_structure, true, exponential_search, base_columns_t, move_structure_t, table_t, space_mode> {
+    using base = permutation_impl<data_columns_t, integrated_move_structure, true, exponential_search, base_columns_t, move_structure_t, table_t, space_mode>;
 public:
     using base::base;
     using base::operator=;
@@ -56,8 +56,8 @@ template<bool exponential_search = DEFAULT_EXPONENTIAL_SEARCH,
          typename base_columns_t = move_columns,
          template<typename, template<typename> class> class move_structure_t = move_structure,
          template<typename> class table_t = move_vector,
-         bool store_offsets = DEFAULT_STORE_OFFSETS>
-using phi_move_impl = phi_permutation_impl<empty_data_columns, false, exponential_search, base_columns_t, move_structure_t, table_t, store_offsets>;
+         invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
+using phi_move_impl = phi_permutation_impl<empty_data_columns, false, exponential_search, base_columns_t, move_structure_t, table_t, space_mode>;
 
 } // namespace orbit::rlbwt
 

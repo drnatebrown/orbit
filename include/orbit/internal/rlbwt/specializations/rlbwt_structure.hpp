@@ -27,58 +27,61 @@ public:
     rlbwt_move_structure(const rlbwt_interval_encoding_t& enc)
     : base(find_structure(enc), enc.domain(), enc.runs()) {}
 
-    rlbwt_move_structure(packed_vector<columns> &&structure, const size_t domain, ulint runs) : base(std::move(structure), domain, runs) {}
+    rlbwt_move_structure(packed_vector<columns> &&structure, const size_t domain, ulint runs)
+        : base(std::move(structure), domain, runs) {}
 
-    static packed_vector<columns> find_structure(const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const uchar char_width, const split_params& sp = split_params()) = delete;
+    rlbwt_move_structure(packed_vector<columns> &&structure, const size_t domain, ulint runs, pointer_spillover spill)
+        : base(std::move(structure), domain, runs, std::move(spill)) {}
+
+    rlbwt_move_structure(move_payload<columns> built, const size_t domain, ulint runs)
+        : base(std::move(built), domain, runs) {}
+
+    static move_payload<columns> find_structure(const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const uchar char_width, const split_params& sp = split_params()) = delete;
 
     // When the permutation is already computed but with no encoding
-    static packed_vector<columns> find_structure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& images, const uchar sigma, const split_params& sp = split_params()) {
+    static move_payload<columns> find_structure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& images, const uchar sigma, const split_params& sp = split_params()) {
         assert(head_chars.size() == lengths.size());
 
         interval_encoding_t enc(lengths, images, sp);
         assert(enc.runs() == lengths.size());
 
-        packed_vector<columns> structure(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), sigma));
-        base::populate_structure(structure, enc);
-        set_characters(structure, head_chars, lengths, enc.domain());
-
-        return structure; 
+        move_payload<columns> built;
+        built.rows = packed_vector<columns>(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), sigma));
+        base::populate_structure(built.rows, enc, &built.spill);
+        set_characters(built.rows, head_chars, lengths, enc.domain());
+        return built;
     }
 
     // When the permutation is already computed with a regular encoding
     template<typename rlbwt_interval_encoding_t>
-    static packed_vector<columns> find_structure(const std::vector<uchar>& rlbwt_chars, const rlbwt_interval_encoding_t& enc, const uchar sigma) {
+    static move_payload<columns> find_structure(const std::vector<uchar>& rlbwt_chars, const rlbwt_interval_encoding_t& enc, const uchar sigma) {
         static_assert(!cols_traits::INVERTIBLE ||
                           rlbwt_interval_encoding_t::invertible_tag,
                       "Invertible RLBWT structure requires an invertible "
                       "interval encoding");
         assert(rlbwt_chars.size() == enc.intervals());
 
-        // Also initialize with the character width
-        packed_vector<columns> structure(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), sigma));
-        base::populate_structure(structure, enc);
-        // Set the character field
-        set_characters(structure, rlbwt_chars);
-
-        return structure; 
+        move_payload<columns> built;
+        built.rows = packed_vector<columns>(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), sigma));
+        base::populate_structure(built.rows, enc, &built.spill);
+        set_characters(built.rows, rlbwt_chars);
+        return built;
     }
 
     // When the permutation is already computed with a rlbwt encoding
     template<typename rlbwt_interval_encoding_t>
-    static packed_vector<columns> find_structure(const rlbwt_interval_encoding_t& enc) {
+    static move_payload<columns> find_structure(const rlbwt_interval_encoding_t& enc) {
         static_assert(!cols_traits::INVERTIBLE ||
                           rlbwt_interval_encoding_t::invertible_tag,
                       "Invertible RLBWT structure requires an invertible "
                       "interval encoding");
         assert(enc.get_heads().size() == enc.intervals());
 
-        // Also initialize with the character width
-        packed_vector<columns> structure(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), enc.sigma()));
-        base::populate_structure(structure, enc);
-        // Set the character field
-        set_characters(structure, enc.get_heads());
-
-        return structure; 
+        move_payload<columns> built;
+        built.rows = packed_vector<columns>(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), enc.sigma()));
+        base::populate_structure(built.rows, enc, &built.spill);
+        set_characters(built.rows, enc.get_heads());
+        return built;
     }
 
     uchar get_character(size_t i) const {

@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cstdio>
 #include <algorithm>
+#include <utility>
 
 #include "orbit/common.hpp"
 #include "orbit/internal/move/interval_encoding_impl.hpp"
@@ -35,12 +36,20 @@ public:
     move_structure_base(const interval_encoding_impl_t& enc)
     : move_structure_base(find_structure(enc), enc.domain(), enc.runs()) {}
 
-    // Constructor from pre-computed table (move semantics) for advanced users
-    move_structure_base(packed_vector<columns> &&structure, const size_t domain, const ulint runs) 
-        : table(std::move(structure)), n(domain), r(runs) {}
+    // Constructor from pre-computed table (move semantics) for advanced users.
+    // Non-spill tables ignore an empty spillover.
+    // Two overloads, not a default argument: inherited constructors drop defaults.
+    move_structure_base(packed_vector<columns> &&structure, const size_t domain, const ulint runs)
+        : move_structure_base(std::move(structure), domain, runs, empty_pointer_spillover()) {}
+
+    move_structure_base(packed_vector<columns> &&structure, const size_t domain, const ulint runs, pointer_spillover spill)
+        : table(std::move(structure), std::move(spill)), n(domain), r(runs) {}
+
+    move_structure_base(move_payload<columns> built, const size_t domain, const ulint runs)
+        : move_structure_base(std::move(built.rows), domain, runs, std::move(built.spill)) {}
 
     template<typename interval_encoding_impl_t>
-    static packed_vector<columns> find_structure(const interval_encoding_impl_t& enc) {
+    static move_payload<columns> find_structure(const interval_encoding_impl_t& enc) {
         // Invertible structures need invertible encodings (fwd/inv flags).
         // Plain structures may consume an invertible encoding after union
         // splitting; they only read lengths / img_rank_inv.
@@ -48,9 +57,10 @@ public:
                           interval_encoding_impl_t::invertible_tag,
                       "Invertible move structure requires an invertible "
                       "interval encoding");
-        packed_vector<columns> structure(enc.intervals(), derived::get_move_widths(enc.domain(), enc.intervals(), enc.max_length()));
-        derived::populate_structure(structure, enc);
-        return structure;
+        move_payload<columns> built;
+        built.rows = packed_vector<columns>(enc.intervals(), derived::get_move_widths(enc.domain(), enc.intervals(), enc.max_length()));
+        derived::populate_structure(built.rows, enc, &built.spill);
+        return built;
     }
 
     // === Interval Start/Length Accessors ===
@@ -305,7 +315,7 @@ public:
     }
 
     template<typename interval_encoding_impl_t>
-    static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc) {
+    static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc, pointer_spillover* = nullptr) {
         size_t start_val = 0;
         size_t output_start_val = 0;
         size_t img_rank_inv_idx = 0;
@@ -338,8 +348,14 @@ public:
 
     MOVE_CLASS_TRAITS(typename table_t<columns_t>::columns)
     using position = typename cols_traits::position;
+    static constexpr invertible_space_mode space_mode = table_t<columns_t>::space_mode;
 
     static_assert(base::cols_traits::INVERTIBLE);
+
+    template <bool spill = cols_traits::USE_SPILLOVER, typename = std::enable_if_t<spill>>
+    size_t spillover_rows() const {
+        return this->table.spillover_rows();
+    }
 
     // === Pointer/Offset Accessors ===
     ulint get_pointer_fwd(size_t i) const {
@@ -446,6 +462,9 @@ public:
     inline constexpr static const char MOVE_STRUCTURE_EXTENSION[] = ".imove";
 
     static std::array<uchar, num_cols> get_move_widths(const ulint domain, const ulint intervals, const ulint max_length) {
+        if constexpr (!cols_traits::RELATIVE && !cols_traits::STORE_OFFSETS) {
+            (void)max_length;
+        }
         std::array<uchar, num_cols> widths = {0};
         for (size_t i = 0; i < num_cols; ++i) {
             widths[i] = bytes_to_bits(DEFAULT_BYTES);
@@ -458,7 +477,9 @@ public:
         }
 
         widths[static_cast<size_t>(cols_traits::POINTER_FWD)] = bit_width(intervals - 1);
-        widths[static_cast<size_t>(cols_traits::POINTER_INV)] = bit_width(intervals - 1);
+        if constexpr (!cols_traits::USE_SPILLOVER) {
+            widths[static_cast<size_t>(cols_traits::POINTER_INV)] = bit_width(intervals - 1);
+        }
 
         widths[static_cast<size_t>(cols_traits::FWD_INTERVAL)] = 1;
         widths[static_cast<size_t>(cols_traits::INV_INTERVAL)] = 1;
@@ -471,8 +492,47 @@ public:
     }
 
     template<typename interval_encoding_impl_t>
-    static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc) {
+    static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc, pointer_spillover* spill_out = nullptr) {
         static_assert(interval_encoding_impl_t::invertible_tag == true, "Invertible type mismatch");
+        constexpr bool spill = cols_traits::USE_SPILLOVER;
+        pointer_spillover spill_table = empty_pointer_spillover();
+        if constexpr (spill) {
+            assert(spill_out != nullptr);
+            // Dual heads are the only rows in the spill table. Their POINTER_FWD cell
+            // holds that row index; the other heads receive a pointer in the scan below.
+            size_t duals = 0;
+            for (size_t i = 0; i < enc.intervals(); ++i) {
+                const bool fwd_head = enc.get_is_fwd_interval(i);
+                const bool inv_head = enc.get_is_inv_interval(i);
+                if (fwd_head && inv_head) {
+                    structure.template set<to_cols(cols_traits::POINTER_FWD)>(i, duals++);
+                } else if (!fwd_head && !inv_head) {
+                    structure.template set<to_cols(cols_traits::POINTER_FWD)>(i, 0);
+                }
+            }
+            const uchar ptr_width = structure.get_widths()[static_cast<size_t>(cols_traits::POINTER_FWD)];
+            spill_table = make_pointer_spillover(duals, ptr_width);
+        }
+
+        auto store_fwd = [&](size_t interval, ulint target) {
+            if (!enc.get_is_fwd_interval(interval)) return;
+            if (enc.get_is_inv_interval(interval)) {
+                spill_table.template set<spill_pointer_columns::FWD>(
+                    structure.template get<to_cols(cols_traits::POINTER_FWD)>(interval), target);
+            } else {
+                structure.template set<to_cols(cols_traits::POINTER_FWD)>(interval, target);
+            }
+        };
+        auto store_inv = [&](size_t interval, ulint target) {
+            if (!enc.get_is_inv_interval(interval)) return;
+            if (enc.get_is_fwd_interval(interval)) {
+                spill_table.template set<spill_pointer_columns::INV>(
+                    structure.template get<to_cols(cols_traits::POINTER_FWD)>(interval), target);
+            } else {
+                structure.template set<to_cols(cols_traits::POINTER_FWD)>(interval, target);
+            }
+        };
+
         size_t input_start_val = 0;
         size_t output_start_val = 0;
         size_t img_rank_inv_idx = 0;
@@ -490,10 +550,14 @@ public:
             // Previous image overshot into i: π^{-1}(start(i)) lands mid-run in j_prev.
             if (img_rank_inv_idx > 0 && output_start_val > input_start_val) {
                 const ulint j_prev = enc.get_img_rank_inv(img_rank_inv_idx - 1);
-                const ulint inv_off = input_start_val - (output_start_val - enc.get_length(j_prev));
-                structure.template set<to_cols(cols_traits::POINTER_INV)>(i, j_prev);
+                if constexpr (spill) {
+                    store_inv(i, j_prev);
+                } else {
+                    structure.template set<to_cols(cols_traits::POINTER_INV)>(i, j_prev);
+                }
                 if constexpr (cols_traits::STORE_OFFSETS) {
                     if (!enc.get_is_inv_interval(i)) {
+                        const ulint inv_off = input_start_val - (output_start_val - enc.get_length(j_prev));
                         structure.template set<to_cols(cols_traits::OFFSET)>(i, inv_off);
                     }
                 }
@@ -503,9 +567,14 @@ public:
                 const ulint j = enc.get_img_rank_inv(img_rank_inv_idx);
                 const ulint off = output_start_val - input_start_val;
 
-                structure.template set<to_cols(cols_traits::POINTER_FWD)>(j, i);
-                if (off == 0) {
-                    structure.template set<to_cols(cols_traits::POINTER_INV)>(i, j);
+                if constexpr (spill) {
+                    store_fwd(j, i);
+                    if (off == 0) store_inv(i, j);
+                } else {
+                    structure.template set<to_cols(cols_traits::POINTER_FWD)>(j, i);
+                    if (off == 0) {
+                        structure.template set<to_cols(cols_traits::POINTER_INV)>(i, j);
+                    }
                 }
 
                 if constexpr (cols_traits::STORE_OFFSETS) {
@@ -518,6 +587,10 @@ public:
                 ++img_rank_inv_idx;
             }
             input_start_val += length;
+        }
+
+        if constexpr (spill) {
+            *spill_out = std::move(spill_table);
         }
     }
 };

@@ -241,6 +241,42 @@ static void test_rlbwt_move_structure_absolute_chars_and_widths() {
     }
 }
 
+static void test_rlbwt_invertible_structure_spill_matches_scan() {
+    const auto enc = invertible_rlbwt_interval_encoding<>::lf_interval_encoding(
+        kBwtHeads, kBwtRunLengths, NO_SPLITTING);
+    rlbwt_move_structure<invertible_rlbwt_columns_scan> scan(enc);
+    rlbwt_move_structure<invertible_rlbwt_columns_spill, move_vector> spill(enc);
+    rlbwt_move_structure<invertible_rlbwt_columns_spill, move_table> spill_tbl(enc);
+
+    assert(spill.space_mode == invertible_space_mode::spill);
+    size_t duals = 0;
+    for (size_t i = 0; i < enc.intervals(); ++i) {
+        if (enc.get_is_fwd_interval(i) && enc.get_is_inv_interval(i)) ++duals;
+    }
+    assert(spill.spillover_rows() == duals);
+    assert(spill_tbl.spillover_rows() == duals);
+    using SpillCols = move_cols_traits<invertible_rlbwt_columns_spill>;
+    assert(spill.get_widths().size() == SpillCols::NUM_COLS);
+    assert(spill_tbl.get_widths().size() == SpillCols::NUM_COLS);
+
+    for (size_t i = 0; i < scan.intervals(); ++i) {
+        if (scan.get_fwd_interval(i)) {
+            assert(spill.get_pointer_fwd(i) == scan.get_pointer_fwd(i));
+        }
+        if (scan.get_inv_interval(i)) {
+            assert(spill.get_pointer_inv(i) == scan.get_pointer_inv(i));
+        }
+        assert(spill.get_character(i) == scan.get_character(i));
+    }
+    for (ulint idx = 0; idx < scan.domain(); ++idx) {
+        auto scan_pos = position_from_index_relative(scan, idx);
+        auto spill_pos = position_from_index_relative(spill, idx);
+        scan_pos = scan.move_fwd(scan_pos);
+        spill_pos = spill.move_fwd(spill_pos);
+        assert(global_index_relative(scan, scan_pos) == global_index_relative(spill, spill_pos));
+    }
+}
+
 int main() {
     test_rlbwt_move_structure_relative_chars_and_widths();
     test_rlbwt_move_structure_relative_splitting_preserves_chars();
@@ -250,6 +286,7 @@ int main() {
     test_rlbwt_invertible_structure_fwd_inv_roundtrip();
     test_rlbwt_invertible_structure_absolute_move_fwd();
     test_rlbwt_invertible_structure_widths();
+    test_rlbwt_invertible_structure_spill_matches_scan();
 
     std::cout << "rlbwt_structure unit tests passed" << std::endl;
     return 0;
