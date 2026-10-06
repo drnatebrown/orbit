@@ -8,9 +8,12 @@
 #include "orbit/permutation.hpp"
 
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <sys/wait.h>
 #include <type_traits>
+#include <unistd.h>
 #include <vector>
 
 using std::size_t;
@@ -625,6 +628,72 @@ static void test_invertible_permutation_up_down() {
     assert(pos.offset == first_pos.offset);
 }
 
+template <typename Fn>
+static void expect_abort(Fn&& fn) {
+    const pid_t pid = fork();
+    assert(pid >= 0);
+    if (pid == 0) {
+        fn();
+        _exit(0);
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    assert(WIFSIGNALED(status));
+    assert(WTERMSIG(status) == SIGABRT);
+}
+
+static void test_invertible_ef_get_idx_move_and_serialize() {
+    const split_params cap = ONLY_LENGTH_CAPPING;
+    const auto enc = make_invertible_encoding(kRunnyPerm, cap);
+
+    invertible_structure_vec plain(enc, false);
+    invertible_structure_vec ef(enc, true);
+    assert(ef.stores_ef_high_bits());
+    assert(!plain.stores_ef_high_bits());
+    assert(ef.intervals() == plain.intervals());
+    for (size_t i = 0; i < ef.intervals(); ++i) {
+        assert(ef.get_length(i) == plain.get_length(i));
+    }
+
+    invertible_structure_vec_scan scan(enc, true);
+    invertible_structure_vec_spill spill(enc, true);
+    assert(scan.stores_ef_high_bits());
+    assert(spill.stores_ef_high_bits());
+
+    for (ulint idx = 0; idx < ef.domain(); ++idx) {
+        const auto pos = position_from_index_relative(ef, idx);
+        const auto pos_plain = position_from_index_relative(plain, idx);
+        const auto pos_scan = position_from_index_relative(scan, idx);
+        const auto pos_spill = position_from_index_relative(spill, idx);
+        assert(ef.get_idx(pos) == idx);
+        assert(scan.get_idx(pos_scan) == idx);
+        assert(spill.get_idx(pos_spill) == idx);
+        assert(ef.get_idx(ef.move(pos)) == global_index_relative(plain, plain.move(pos_plain)));
+        assert(scan.get_idx(scan.move(pos_scan)) == ef.get_idx(ef.move(pos)));
+        assert(spill.get_idx(spill.move(pos_spill)) == ef.get_idx(ef.move(pos)));
+    }
+
+    std::stringstream ss;
+    assert(ef.serialize(ss) > 0);
+    invertible_structure_vec loaded;
+    loaded.load(ss);
+    assert(loaded.stores_ef_high_bits());
+    assert(loaded.domain() == ef.domain());
+    assert(loaded.get_idx(position_from_index_relative(loaded, 0)) == 0);
+    assert(loaded.get_idx(position_from_index_relative(loaded, loaded.domain() - 1)) == loaded.domain() - 1);
+
+    expect_abort([&] {
+        const auto uncapped = make_invertible_encoding(kRunnyPerm, NO_SPLITTING);
+        invertible_structure_vec rejected(uncapped, true);
+        (void)rejected;
+    });
+    expect_abort([&] {
+        const auto capped = make_invertible_encoding(kRunnyPerm, cap);
+        invertible_structure_vec_idx rejected(capped, true);
+        (void)rejected;
+    });
+}
+
 int main() {
     test_invertible_structure_build_from_encoding();
     test_invertible_structure_build_from_lengths_and_images();
@@ -640,6 +709,7 @@ int main() {
     test_invertible_structure_widths();
     test_invertible_structure_offset_matches_scan();
     test_invertible_structure_spill_matches_scan();
+    test_invertible_ef_get_idx_move_and_serialize();
     test_invertible_permutation_next_prev();
     test_invertible_permutation_next_prev_multi_step();
     test_invertible_permutation_absolute_exponential_prev();

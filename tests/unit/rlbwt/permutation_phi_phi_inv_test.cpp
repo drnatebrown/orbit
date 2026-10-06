@@ -280,6 +280,54 @@ static void test_phi_relative_ef_sa_matches_absolute() {
     }
 }
 
+static void test_invertible_phi_relative_ef_sa_matches_absolute() {
+    vector<uchar> heads = {'T','C','G','A','T', 1 ,'A','T','A'};
+    vector<ulint> lens  = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
+    const split_params cap = ONLY_LENGTH_CAPPING;
+
+    auto check = [&](auto& absolute, auto& relative) {
+        assert(relative.stores_ef_high_bits());
+        assert(!absolute.stores_ef_high_bits());
+        auto pos_abs = absolute.first();
+        auto pos_rel = relative.first();
+        for (ulint i = 0; i < absolute.domain(); ++i) {
+            assert(relative.SA(pos_rel) == absolute.SA(pos_abs));
+            pos_abs = absolute.phi(pos_abs);
+            pos_rel = relative.phi(pos_rel);
+        }
+    };
+    auto check_inv = [&](auto& absolute, auto& relative) {
+        assert(relative.stores_ef_high_bits());
+        auto pos_abs = absolute.first();
+        auto pos_rel = relative.first();
+        for (ulint i = 0; i < absolute.domain(); ++i) {
+            assert(relative.SA(pos_rel) == absolute.SA(pos_abs));
+            pos_abs = absolute.phi_inv(pos_abs);
+            pos_rel = relative.phi_inv(pos_rel);
+        }
+    };
+
+    invertible_phi_move<> absolute(heads, lens, cap);
+    invertible_phi_move_relative<> relative(heads, lens, cap, true);
+    check(absolute, relative);
+    invertible_phi_move_scan absolute_scan(heads, lens, cap);
+    invertible_phi_move_relative_scan relative_scan(heads, lens, cap, true);
+    check(absolute_scan, relative_scan);
+    invertible_phi_move_spill absolute_spill(heads, lens, cap);
+    invertible_phi_move_relative_spill relative_spill(heads, lens, cap, true);
+    check(absolute_spill, relative_spill);
+
+    invertible_phi_inv_move<> absolute_inv(heads, lens, cap);
+    invertible_phi_inv_move_relative<> relative_inv(heads, lens, cap, true);
+    check_inv(absolute_inv, relative_inv);
+    invertible_phi_inv_move_scan absolute_inv_scan(heads, lens, cap);
+    invertible_phi_inv_move_relative_scan relative_inv_scan(heads, lens, cap, true);
+    check_inv(absolute_inv_scan, relative_inv_scan);
+    invertible_phi_inv_move_spill absolute_inv_spill(heads, lens, cap);
+    invertible_phi_inv_move_relative_spill relative_inv_spill(heads, lens, cap, true);
+    check_inv(absolute_inv_spill, relative_inv_spill);
+}
+
 int main() {
     test_phi_phi_inv_structure_on_small_rlbwt();
     test_runperm_phi_phi_inv_wrapper_equivalence();
@@ -289,6 +337,7 @@ int main() {
     test_sa_samples_to_phi_starts_images_matches_rlbwt();
     test_sa_samples_to_phi_inv_starts_images_matches_rlbwt();
     test_phi_relative_ef_sa_matches_absolute();
+    test_invertible_phi_relative_ef_sa_matches_absolute();
 
     std::cout << "permutation_phi_phi_inv unit tests passed" << std::endl;
     return 0;

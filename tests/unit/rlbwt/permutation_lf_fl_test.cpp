@@ -5,7 +5,10 @@
 
 #include <array>
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
 using namespace orbit;
@@ -378,6 +381,97 @@ void test_consuming_lf_encoding_matches_const_ctor() {
     }
 }
 
+template <typename Fn>
+static void expect_abort(Fn&& fn) {
+    const pid_t pid = fork();
+    assert(pid >= 0);
+    if (pid == 0) {
+        fn();
+        _exit(0);
+    }
+    int status = 0;
+    waitpid(pid, &status, 0);
+    assert(WIFSIGNALED(status));
+    assert(WTERMSIG(status) == SIGABRT);
+}
+
+template <typename Absolute, typename Relative>
+static void assert_lf_ef_matches(Absolute& absolute, Relative& ef) {
+    assert(ef.stores_ef_high_bits());
+    assert(ef.domain() == absolute.domain());
+    assert(ef.intervals() == absolute.intervals());
+    auto pos_abs = absolute.first();
+    auto pos_ef = ef.first();
+    for (ulint i = 0; i < absolute.domain(); ++i) {
+        assert(ef.get_character(pos_ef) == absolute.get_character(pos_abs));
+        assert(ef.get_idx(pos_ef) == absolute.get_idx(pos_abs));
+        assert(pos_ef.interval == pos_abs.interval);
+        assert(pos_ef.offset == pos_abs.offset);
+        pos_abs = absolute.LF(pos_abs);
+        pos_ef = ef.LF(pos_ef);
+    }
+}
+
+template <typename Absolute, typename Relative>
+static void assert_fl_ef_matches(Absolute& absolute, Relative& ef) {
+    assert(ef.stores_ef_high_bits());
+    auto pos_abs = absolute.first();
+    auto pos_ef = ef.first();
+    for (ulint i = 0; i < absolute.domain(); ++i) {
+        assert(ef.get_character(pos_ef) == absolute.get_character(pos_abs));
+        assert(ef.get_idx(pos_ef) == absolute.get_idx(pos_abs));
+        pos_abs = absolute.FL(pos_abs);
+        pos_ef = ef.FL(pos_ef);
+    }
+}
+
+static void test_rlbwt_relative_ef_lf_fl() {
+    vector<uchar> heads = {'T','C','G','A','T', 1 ,'A','T','A'};
+    vector<ulint> lens  = { 5 , 3 , 3 , 3 , 1 , 1 , 1 , 4 , 6 };
+    // Tight cap forces splits so character assignment cannot read PRIMARY as a length.
+    const split_params cap(0.25, std::nullopt);
+
+    lf_move_absolute plain_lf(heads, lens, cap);
+    lf_move_relative ef_lf(heads, lens, cap, true);
+    assert_lf_ef_matches(plain_lf, ef_lf);
+
+    fl_move_absolute plain_fl(heads, lens, cap);
+    fl_move_relative ef_fl(heads, lens, cap, true);
+    assert_fl_ef_matches(plain_fl, ef_fl);
+
+    invertible_lf_move_absolute inv_lf(heads, lens, cap);
+    invertible_lf_move_relative inv_ef_lf(heads, lens, cap, true);
+    assert_lf_ef_matches(inv_lf, inv_ef_lf);
+    invertible_lf_move_scan<> inv_scan_lf(heads, lens, cap, true);
+    invertible_lf_move_spill<> inv_spill_lf(heads, lens, cap, true);
+    assert(inv_scan_lf.stores_ef_high_bits());
+    assert(inv_spill_lf.stores_ef_high_bits());
+    auto scan_pos = inv_scan_lf.first();
+    auto spill_pos = inv_spill_lf.first();
+    auto abs_pos = inv_lf.first();
+    for (ulint i = 0; i < inv_lf.domain(); ++i) {
+        assert(inv_scan_lf.get_idx(scan_pos) == inv_lf.get_idx(abs_pos));
+        assert(inv_spill_lf.get_idx(spill_pos) == inv_lf.get_idx(abs_pos));
+        assert(inv_scan_lf.get_character(scan_pos) == inv_lf.get_character(abs_pos));
+        scan_pos = inv_scan_lf.LF(scan_pos);
+        spill_pos = inv_spill_lf.LF(spill_pos);
+        abs_pos = inv_lf.LF(abs_pos);
+    }
+
+    invertible_fl_move_absolute inv_fl(heads, lens, cap);
+    invertible_fl_move_relative inv_ef_fl(heads, lens, cap, true);
+    assert_fl_ef_matches(inv_fl, inv_ef_fl);
+
+    expect_abort([&] {
+        lf_move_absolute rejected(heads, lens, cap, true);
+        (void)rejected;
+    });
+    expect_abort([&] {
+        lf_move_relative rejected(heads, lens, NO_SPLITTING, true);
+        (void)rejected;
+    });
+}
+
 int main() {
     test_move_lf_wrapper_equivalence();
     test_runperm_lf_wrapper_equivalence();
@@ -390,6 +484,7 @@ int main() {
     test_runpermlf_construct_from_precomputed_permutation_with_splitting();
     test_bwt_to_rlbwt_basic();
     test_consuming_lf_encoding_matches_const_ctor();
+    test_rlbwt_relative_ef_lf_fl();
 
     std::cout << "permutation_lf_fl unit tests passed" << std::endl;
     return 0;

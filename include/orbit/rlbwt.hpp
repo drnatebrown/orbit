@@ -274,6 +274,10 @@ template<invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
 using invertible_phi_move = phi_move_impl<DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, space_mode>;
 using invertible_phi_move_scan = invertible_phi_move<invertible_space_mode::scan>;
 using invertible_phi_move_spill = invertible_phi_move<invertible_space_mode::spill>;
+template<invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
+using invertible_phi_move_relative = phi_move_impl<DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, space_mode, false>;
+using invertible_phi_move_relative_scan = invertible_phi_move_relative<invertible_space_mode::scan>;
+using invertible_phi_move_relative_spill = invertible_phi_move_relative<invertible_space_mode::spill>;
 
 
 // === phi_inv_permutation ===
@@ -303,6 +307,10 @@ template<invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
 using invertible_phi_inv_move = phi_inv_move_impl<DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, space_mode>;
 using invertible_phi_inv_move_scan = invertible_phi_inv_move<invertible_space_mode::scan>;
 using invertible_phi_inv_move_spill = invertible_phi_inv_move<invertible_space_mode::spill>;
+template<invertible_space_mode space_mode = DEFAULT_INVERTIBLE_SPACE>
+using invertible_phi_inv_move_relative = phi_inv_move_impl<DEFAULT_EXPONENTIAL_SEARCH, invertible_columns, move_structure, move_vector, space_mode, false>;
+using invertible_phi_inv_move_relative_scan = invertible_phi_inv_move_relative<invertible_space_mode::scan>;
+using invertible_phi_inv_move_relative_spill = invertible_phi_inv_move_relative<invertible_space_mode::spill>;
 
 
 } // end namespace orbit::rlbwt

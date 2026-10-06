@@ -71,19 +71,13 @@ public:
                       "Invertible move structure requires an invertible "
                       "interval encoding");
         if (ef != nullptr) {
-            assert(!cols_traits::INVERTIBLE && "store_ef_high_bits is only supported for non-invertible move structures");
             assert(cols_traits::RELATIVE && "store_ef_high_bits requires relative positions");
             assert(enc.get_split_params().length_capping.has_value() &&
                    "store_ef_high_bits requires length capping");
         }
         move_payload<columns> built;
         built.rows = packed_vector<columns>(enc.intervals(), derived::get_move_widths(enc.domain(), enc.intervals(), enc.max_length()));
-        if constexpr (cols_traits::INVERTIBLE) {
-            assert(ef == nullptr);
-            derived::populate_structure(built.rows, enc, &built.spill);
-        } else {
-            derived::populate_structure(built.rows, enc, &built.spill, ef);
-        }
+        derived::populate_structure(built.rows, enc, &built.spill, ef);
         return built;
     }
 
@@ -573,9 +567,21 @@ public:
     }
 
     template<typename interval_encoding_impl_t>
-    static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc, pointer_spillover* spill_out = nullptr) {
+    static void populate_structure(packed_vector<columns>& structure, const interval_encoding_impl_t& enc, pointer_spillover* spill_out = nullptr, ef_index* ef = nullptr) {
         static_assert(interval_encoding_impl_t::invertible_tag == true, "Invertible type mismatch");
         constexpr bool spill = cols_traits::USE_SPILLOVER;
+        const bool use_ef = ef != nullptr;
+        uchar low_bits = 0;
+        ulint low_mask = 0;
+        if (use_ef) {
+            low_bits = bit_width(enc.max_length());
+            assert(low_bits < 64);
+            low_mask = mask(low_bits);
+            const size_t universe = (static_cast<size_t>(enc.domain()) >> low_bits) + enc.intervals() + 1;
+            ef->enabled = true;
+            ef->bits = low_bits;
+            ef->high = bit_vector(universe);
+        }
         pointer_spillover spill_table = empty_pointer_spillover();
         if constexpr (spill) {
             assert(spill_out != nullptr);
@@ -620,7 +626,12 @@ public:
         for (size_t i = 0; i < enc.intervals(); ++i) {
             size_t length = enc.get_length(i);
             if constexpr (cols_traits::RELATIVE) {
-                structure.template set<to_cols(cols_traits::PRIMARY)>(i, length);
+                if (use_ef) {
+                    structure.template set<to_cols(cols_traits::PRIMARY)>(i, input_start_val & low_mask);
+                    ef->high.set((static_cast<size_t>(input_start_val) >> low_bits) + i);
+                } else {
+                    structure.template set<to_cols(cols_traits::PRIMARY)>(i, length);
+                }
             }
             else {
                 structure.template set<to_cols(cols_traits::PRIMARY)>(i, input_start_val);
@@ -672,6 +683,10 @@ public:
 
         if constexpr (spill) {
             *spill_out = std::move(spill_table);
+        }
+        if (use_ef) {
+            ef->sentinel_low = static_cast<ulint>(input_start_val) & low_mask;
+            ef->high.build_select();
         }
     }
 };

@@ -20,8 +20,8 @@ public:
 
     rlbwt_move_structure() = default;
 
-    rlbwt_move_structure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const uchar sigma, const split_params& sp = split_params())
-    : base(find_structure(head_chars, lengths, images, sigma, sp), domain, lengths.size()) {}
+    rlbwt_move_structure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const uchar sigma, const split_params& sp = split_params(), bool store_ef_high_bits = false)
+    : rlbwt_move_structure(prepare_rows(head_chars, lengths, images, domain, sigma, sp, store_ef_high_bits)) {}
 
     template<typename rlbwt_interval_encoding_t>
     rlbwt_move_structure(const rlbwt_interval_encoding_t& enc)
@@ -42,57 +42,52 @@ public:
     static move_payload<columns> find_structure(const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const uchar char_width, const split_params& sp = split_params()) = delete;
 
     // When the permutation is already computed but with no encoding
-    static move_payload<columns> find_structure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& images, const uchar sigma, const split_params& sp = split_params()) {
+    static move_payload<columns> find_structure(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& images, const uchar sigma, const split_params& sp = split_params(), ef_index* ef = nullptr) {
         assert(head_chars.size() == lengths.size());
 
         interval_encoding_t enc(lengths, images, sp);
         assert(enc.runs() == lengths.size());
+        require_ef_supported(enc, ef);
 
         move_payload<columns> built;
         built.rows = packed_vector<columns>(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), sigma));
-        base::populate_structure(built.rows, enc, &built.spill);
-        set_characters(built.rows, head_chars, lengths, enc.domain());
+        base::populate_structure(built.rows, enc, &built.spill, ef);
+        set_characters(built.rows, head_chars, lengths, enc);
         return built;
     }
 
     // When the permutation is already computed with a regular encoding
     template<typename rlbwt_interval_encoding_t>
-    static move_payload<columns> find_structure(const std::vector<uchar>& rlbwt_chars, const rlbwt_interval_encoding_t& enc, const uchar sigma) {
+    static move_payload<columns> find_structure(const std::vector<uchar>& rlbwt_chars, const rlbwt_interval_encoding_t& enc, const uchar sigma, ef_index* ef = nullptr) {
         static_assert(!cols_traits::INVERTIBLE ||
                           rlbwt_interval_encoding_t::invertible_tag,
                       "Invertible RLBWT structure requires an invertible "
                       "interval encoding");
         assert(rlbwt_chars.size() == enc.intervals());
+        require_ef_supported(enc, ef);
 
         move_payload<columns> built;
         built.rows = packed_vector<columns>(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), sigma));
-        base::populate_structure(built.rows, enc, &built.spill);
+        base::populate_structure(built.rows, enc, &built.spill, ef);
         set_characters(built.rows, rlbwt_chars);
         return built;
     }
 
     // When the permutation is already computed with a rlbwt encoding
     template<typename rlbwt_interval_encoding_t>
-    static move_payload<columns> find_structure(const rlbwt_interval_encoding_t& enc) {
+    static move_payload<columns> find_structure(const rlbwt_interval_encoding_t& enc, ef_index* ef = nullptr) {
         static_assert(!cols_traits::INVERTIBLE ||
                           rlbwt_interval_encoding_t::invertible_tag,
                       "Invertible RLBWT structure requires an invertible "
                       "interval encoding");
         assert(enc.get_heads().size() == enc.intervals());
+        require_ef_supported(enc, ef);
 
         move_payload<columns> built;
         built.rows = packed_vector<columns>(enc.intervals(), get_move_widths(enc.domain(), enc.intervals(), enc.max_length(), enc.sigma()));
-        base::populate_structure(built.rows, enc, &built.spill);
+        base::populate_structure(built.rows, enc, &built.spill, ef);
         set_characters(built.rows, enc.get_heads());
         return built;
-    }
-
-    // Permutation build always passes an ef pointer slot. RLBWT rows are out of
-    // scope for Elias-Fano in this version, so a non-null index is rejected.
-    template<typename rlbwt_interval_encoding_t>
-    static move_payload<columns> find_structure(const rlbwt_interval_encoding_t& enc, ef_index* ef) {
-        assert(ef == nullptr && "store_ef_high_bits is not supported for RLBWT structures");
-        return find_structure(enc);
     }
 
     uchar get_character(size_t i) const {
@@ -103,6 +98,32 @@ public:
     }
 
 private:
+    struct rows_and_ef {
+        move_payload<columns> payload;
+        ef_index ef;
+        size_t domain = 0;
+        ulint runs = 0;
+    };
+
+    rlbwt_move_structure(rows_and_ef built)
+        : base(std::move(built.payload.rows), built.domain, built.runs, std::move(built.payload.spill), std::move(built.ef)) {}
+
+    static rows_and_ef prepare_rows(const std::vector<uchar>& head_chars, const std::vector<ulint>& lengths, const std::vector<ulint>& images, const ulint domain, const uchar sigma, const split_params& sp, bool store_ef_high_bits) {
+        rows_and_ef built;
+        built.domain = domain;
+        built.runs = lengths.size();
+        built.payload = find_structure(head_chars, lengths, images, sigma, sp, store_ef_high_bits ? &built.ef : nullptr);
+        return built;
+    }
+
+    template<typename encoding_t>
+    static void require_ef_supported(const encoding_t& enc, ef_index* ef) {
+        if (ef == nullptr) return;
+        assert(cols_traits::RELATIVE && "store_ef_high_bits requires relative positions");
+        assert(enc.get_split_params().length_capping.has_value() &&
+               "store_ef_high_bits requires length capping");
+    }
+
     static std::array<uchar, num_cols> get_move_widths(const ulint domain, const ulint runs, const ulint max_length, const uchar sigma) {
         auto widths = base::get_move_widths(domain, runs, max_length);
         widths[static_cast<size_t>(cols_traits::CHARACTER)] = bit_width(sigma - 1);
@@ -119,17 +140,20 @@ private:
         }
     }
 
-    // Copy characters over while accounting for splitting
-    static void set_characters(packed_vector<columns>& structure, const std::vector<uchar>& rlbwt_chars, const std::vector<ulint>& lengths, const ulint domain) {
+    // Copy characters over while accounting for splitting.
+    // Relative PRIMARY may hold Elias-Fano lows, so interval lengths come from the encoding.
+    template<typename encoding_t>
+    static void set_characters(packed_vector<columns>& structure, const std::vector<uchar>& rlbwt_chars, const std::vector<ulint>& lengths, const encoding_t& enc) {
         assert(rlbwt_chars.size() == lengths.size());
         
-        auto get_structure_length = [&structure, &domain](size_t row) {
+        auto get_structure_length = [&structure, &enc](size_t row) {
             if constexpr (!cols_traits::RELATIVE) {
+                const ulint domain = enc.domain();
                 return (row == structure.size() - 1) 
                     ? domain - structure.template get<cols_traits::PRIMARY>(row)
                     : structure.template get<cols_traits::PRIMARY>(row + 1) - structure.template get<cols_traits::PRIMARY>(row);
             } else {
-                return structure.template get<cols_traits::PRIMARY>(row);
+                return enc.get_length(row);
             }
         };
 

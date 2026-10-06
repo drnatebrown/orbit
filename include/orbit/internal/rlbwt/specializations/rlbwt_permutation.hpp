@@ -45,17 +45,23 @@ protected:
     rlbwt_permutation(const rlbwt_interval_encoding_impl_t &enc) 
     : rlbwt_permutation(enc, std::vector<data_tuple>(enc.intervals())) {}
 
+    template<typename rlbwt_interval_encoding_impl_t,
+             typename dc = data_columns_t,
+             std::enable_if_t<std::is_same_v<dc, empty_data_columns>, int> = 0>
+    rlbwt_permutation(const rlbwt_interval_encoding_impl_t &enc, bool store_ef_high_bits)
+    : rlbwt_permutation(enc, std::vector<data_tuple>(enc.intervals()), store_ef_high_bits) {}
+
     // Rvalue encoding. Alphabet is copied before packed vectors are dropped.
     template<typename rlbwt_interval_encoding_impl_t,
              typename dc = data_columns_t,
              std::enable_if_t<std::is_same_v<dc, empty_data_columns> &&
                               !std::is_lvalue_reference_v<rlbwt_interval_encoding_impl_t> &&
                               is_interval_encoding_type<std::decay_t<rlbwt_interval_encoding_impl_t>>::value, int> = 0>
-    rlbwt_permutation(rlbwt_interval_encoding_impl_t&& enc) {
+    rlbwt_permutation(rlbwt_interval_encoding_impl_t&& enc, bool store_ef_high_bits = false) {
         static_assert(std::is_same_v<alphabet_t, typename std::decay_t<rlbwt_interval_encoding_impl_t>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
         const size_t n = enc.intervals();
         alphabet_ = enc.get_alphabet();
-        base::build_from_interval_encoding(std::move(enc), std::vector<data_tuple>(n));
+        base::build_from_interval_encoding(std::move(enc), std::vector<data_tuple>(n), store_ef_high_bits);
     }
 
     template<typename dc = data_columns_t,
@@ -73,22 +79,29 @@ protected:
                   const split_params& sp = split_params()) 
     : rlbwt_permutation(rlbwt_heads, rlbwt_run_lengths, sp, std::vector<data_tuple>(rlbwt_heads.size())) {}
 
+    template<typename container1_t, typename container2_t,
+             typename dc = data_columns_t,
+             std::enable_if_t<std::is_same_v<dc, empty_data_columns>, int> = 0>
+    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths,
+                  const split_params& sp, bool store_ef_high_bits)
+    : rlbwt_permutation(rlbwt_heads, rlbwt_run_lengths, sp, std::vector<data_tuple>(rlbwt_heads.size()), store_ef_high_bits) {}
+
     // Regular non-gated constructors for user defined data columns
     template<typename rlbwt_interval_encoding_impl_t>
-    rlbwt_permutation(const rlbwt_interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data) {
+    rlbwt_permutation(const rlbwt_interval_encoding_impl_t& enc, const std::vector<data_tuple> &run_data, bool store_ef_high_bits = false) {
         static_assert(std::is_same_v<alphabet_t, typename rlbwt_interval_encoding_impl_t::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
         alphabet_ = enc.get_alphabet();
-        base::build_from_interval_encoding(enc, run_data);
+        base::build_from_interval_encoding(enc, run_data, store_ef_high_bits);
     }
 
     // Both arguments are rvalues. Alphabet is copied before packed vectors are dropped.
     template<typename rlbwt_interval_encoding_impl_t,
              std::enable_if_t<!std::is_lvalue_reference_v<rlbwt_interval_encoding_impl_t> &&
                               is_interval_encoding_type<std::decay_t<rlbwt_interval_encoding_impl_t>>::value, int> = 0>
-    rlbwt_permutation(rlbwt_interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data) {
+    rlbwt_permutation(rlbwt_interval_encoding_impl_t&& enc, std::vector<data_tuple>&& run_data, bool store_ef_high_bits = false) {
         static_assert(std::is_same_v<alphabet_t, typename std::decay_t<rlbwt_interval_encoding_impl_t>::alphabet_tag>, "alphabet_t must be the same as the alphabet type used to create the interval encoding");
         alphabet_ = enc.get_alphabet();
-        base::build_from_interval_encoding(std::move(enc), std::move(run_data));
+        base::build_from_interval_encoding(std::move(enc), std::move(run_data), store_ef_high_bits);
     }
 
     template<typename container1_t, typename container2_t>
@@ -96,21 +109,25 @@ protected:
         : rlbwt_permutation(rlbwt_heads, rlbwt_run_lengths, NO_SPLITTING, run_data) {}
 
     template<typename container1_t, typename container2_t>
-    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, const std::vector<data_tuple> &run_data)
+    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, const std::vector<data_tuple> &run_data, bool store_ef_high_bits = false)
         : rlbwt_permutation(rlbwt_heads, rlbwt_run_lengths, sp,
             [&run_data](ulint orig_interval, ulint orig_interval_length, ulint new_offset_from_orig_start, ulint new_length) {
+                (void)orig_interval_length;
+                (void)new_offset_from_orig_start;
+                (void)new_length;
                 return run_data[orig_interval];
-            }
+            },
+            store_ef_high_bits
         ){}
 
     template<typename container1_t, typename container2_t>
-    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, const std::vector<data_tuple> &run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data) {
-        build_from_rlbwt(rlbwt_heads, rlbwt_run_lengths, sp, &run_data, std::move(get_run_cols_data));
+    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, const std::vector<data_tuple> &run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data, bool store_ef_high_bits = false) {
+        build_from_rlbwt(rlbwt_heads, rlbwt_run_lengths, sp, &run_data, std::move(get_run_cols_data), store_ef_high_bits);
     }
 
     template<typename container1_t, typename container2_t>
-    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data) {
-        build_from_rlbwt(rlbwt_heads, rlbwt_run_lengths, sp, nullptr, std::move(get_run_cols_data));
+    rlbwt_permutation(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data, bool store_ef_high_bits = false) {
+        build_from_rlbwt(rlbwt_heads, rlbwt_run_lengths, sp, nullptr, std::move(get_run_cols_data), store_ef_high_bits);
     }
 
     // Column-major run data: run_cols[c][i] is column c of interval i.
@@ -256,12 +273,12 @@ protected:
     alphabet_t alphabet_;
 
     template<typename container1_t, typename container2_t>
-    void build_from_rlbwt(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, const std::vector<data_tuple>* run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data)
+    void build_from_rlbwt(const container1_t &rlbwt_heads, const container2_t &rlbwt_run_lengths, const split_params& sp, const std::vector<data_tuple>* run_data, std::function<data_tuple(ulint, ulint, ulint, ulint)> get_run_cols_data, bool store_ef_high_bits = false)
     {
         assert(rlbwt_heads.size() == rlbwt_run_lengths.size());
         auto enc = find_interval_encoding(rlbwt_heads, rlbwt_run_lengths, sp);
         alphabet_ = enc.get_alphabet();
-        base::build_from_interval_encoding_callback(enc, rlbwt_run_lengths, run_data, std::move(get_run_cols_data));
+        base::build_from_interval_encoding_callback(enc, rlbwt_run_lengths, run_data, std::move(get_run_cols_data), store_ef_high_bits);
     }
 
     // Special logic for LF or FL
